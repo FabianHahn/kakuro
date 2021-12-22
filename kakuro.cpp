@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <random>
 #include <string>
@@ -35,9 +36,14 @@ struct Cell {
 	int row;
 	int column;
 	bool isBlock;
+	bool isMarked;
 	int number;
+	Cell *rowBlock;
+	Cell *columnBlock;
 	std::array<bool, 10> rowNumbers;
 	std::array<bool, 10> columnNumbers;
+	int rowBlockSize;
+	int columnBlockSize;
 	int sumRow;
 	int sumColumn;
 
@@ -57,6 +63,14 @@ struct Cell {
 		return NumNumbers(columnNumbers);
 	}
 
+	int RowBlockDistance() {
+		return column - rowBlock->column;
+	}
+
+	int ColumnBlockDistance() {
+		return row - columnBlock->row;
+	}
+
 	void Sum() {
 		sumRow = SumNumbers(rowNumbers);
 		sumColumn = SumNumbers(columnNumbers);
@@ -68,6 +82,7 @@ public:
 	Board(int numRows, int numColumns)
 		: numRows_{ numRows }, numColumns_{ numColumns } {
 		cells_ = new Cell[numRows_ * numColumns_];
+		numNumbers_ = numRows_ * numColumns_;
 		for (int row = 0; row < numRows_; row++) {
 			for (int column = 0; column < numColumns_; column++) {
 				auto& cell = CellAt(row, column);
@@ -76,11 +91,27 @@ public:
 
 				if (row == 0 || column == 0) {
 					cell.isBlock = true;
+					cell.rowBlock = &cell;
+					cell.columnBlock = &cell;
+					numNumbers_--;
+
+					cell.rowBlockSize = 0;
+					cell.columnBlockSize = 0;
+					if (row == 0 && column != 0) {
+						cell.columnBlockSize = numRows_ - 1;
+					}
+
+					if (column == 0 && row != 0) {
+						cell.rowBlockSize = numColumns_ - 1;
+					}
 				}
 				else {
 					cell.isBlock = false;
+					cell.rowBlock = &CellAt(row, 0);
+					cell.columnBlock = &CellAt(0, column);
 				}
 
+				cell.isMarked = false;
 				cell.number = 0;
 				cell.sumColumn = 0;
 				cell.sumRow = 0;
@@ -107,61 +138,166 @@ public:
 		return cells_[row * numColumns_ + column];
 	}
 
-	Cell& FindRowBlock(Cell& cell) {
-		if (cell.isBlock) {
-			return cell;
+	void ClearMarks() {
+		for (int row = 0; row < numRows_; row++) {
+			for (int column = 0; column < numColumns_; column++) {
+				CellAt(row, column).isMarked = false;
+			}
 		}
-
-		assert(cell.column > 0);
-		return FindRowBlock(CellAt(cell.row, cell.column - 1));
 	}
 
-	Cell& FindColumnBlock(Cell& cell) {
-		if (cell.isBlock) {
-			return cell;
+	int CountReachableCells(Cell& cell) {
+		if (cell.isBlock || cell.isMarked) {
+			return 0;
 		}
 
-		assert(cell.row > 0);
-		return FindColumnBlock(CellAt(cell.row - 1, cell.column));
+		int numReachableUnmarked = 1;
+		cell.isMarked = true;
+
+		numReachableUnmarked += CountReachableCells(CellAt(cell.row - 1, cell.column));
+		numReachableUnmarked += CountReachableCells(CellAt(cell.row, cell.column - 1));
+
+		if (cell.row + 1 < numRows_) {
+			numReachableUnmarked += CountReachableCells(CellAt(cell.row + 1, cell.column));
+		}
+		if (cell.column + 1 < numColumns_) {
+			numReachableUnmarked += CountReachableCells(CellAt(cell.row, cell.column + 1));
+		}
+
+		return numReachableUnmarked;
+	}
+
+	bool IsCriticalPath(Cell& cell)
+	{
+		if (cell.isBlock) {
+			return false;
+		}
+
+		Cell &topCell = CellAt(cell.row - 1, cell.column);
+		if (!topCell.isBlock) {
+			ClearMarks();
+			cell.isMarked = true;
+			int numReachableTop = CountReachableCells(topCell);
+			if (numReachableTop != numNumbers_ - 1) {
+				return true;
+			}
+		}
+
+		Cell &leftCell = CellAt(cell.row, cell.column - 1);
+		if (!leftCell.isBlock) {
+			ClearMarks();
+			cell.isMarked = true;
+			int numReachableLeft = CountReachableCells(leftCell);
+			if (numReachableLeft != numNumbers_ - 1) {
+				return true;
+			}
+		}
+
+		if (cell.row + 1 < numRows_) {
+			Cell& bottomCell = CellAt(cell.row + 1, cell.column);
+			if (!bottomCell.isBlock) {
+				ClearMarks();
+				cell.isMarked = true;
+				int numReachableBottom = CountReachableCells(bottomCell);
+				if (numReachableBottom != numNumbers_ - 1) {
+					return true;
+				}
+			}
+		}
+
+		if (cell.column + 1 < numColumns_) {
+			Cell& rightCell = CellAt(cell.row, cell.column + 1);
+			if (!rightCell.isBlock) {
+				ClearMarks();
+				cell.isMarked = true;
+				int numReachableRight = CountReachableCells(rightCell);
+				if (numReachableRight != numNumbers_ - 1) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	void MakeBlock(Cell& cell) {
+		if (cell.isBlock) {
+			return;
+		}
+
+		cell.rowBlock->rowBlockSize = cell.RowBlockDistance() - 1;
+		cell.columnBlock->columnBlockSize = cell.ColumnBlockDistance() - 1;
+
+		numNumbers_--;
+		cell.isBlock = true;
+		cell.number = 0;
+		cell.columnBlockSize = 0;
+		for (int row = cell.row + 1; row < numRows_; row++) {
+			Cell& currentCell = CellAt(row, cell.column);
+
+			if (currentCell.isBlock) {
+				break;
+			}
+
+			currentCell.columnBlock = &cell;
+			cell.columnBlockSize++;
+		}
+
+		cell.rowBlockSize = 0;
+		for (int column = cell.column + 1; column < numColumns_; column++) {
+			Cell& currentCell = CellAt(cell.row, column);
+
+			if (currentCell.isBlock) {
+				break;
+			}
+
+			currentCell.rowBlock = &cell;
+			cell.rowBlockSize++;
+		}
+	}
+
+	void FillThinNeighbors(Cell& cell) {
+		if (cell.isBlock) {
+			return;
+		}
+
+		int rowBlockDistance = cell.RowBlockDistance();
+		int columnBlockDistance = cell.ColumnBlockDistance();
+
+		bool isNextRowFree = false;
+		if (cell.row + 1 < numRows_ && !CellAt(cell.row + 1, cell.column).isBlock) {
+			isNextRowFree = true;
+		}
+
+		bool isNextColumnFree = false;
+		if (cell.column + 1 < numColumns_ && !CellAt(cell.row, cell.column + 1).isBlock) {
+			isNextColumnFree = true;
+		}
+
+		bool isLockedInRows = columnBlockDistance == 1 && !isNextRowFree;
+		bool isLockedInColumns = rowBlockDistance == 1 && !isNextColumnFree;
+		if (isLockedInRows || isLockedInColumns) {
+			MakeBlock(cell);
+			FillThinNeighbors(CellAt(cell.row - 1, cell.column));
+			FillThinNeighbors(CellAt(cell.row, cell.column - 1));
+
+			if (cell.row + 1 < numRows_) {
+				FillThinNeighbors(CellAt(cell.row + 1, cell.column));
+			}
+			if (cell.column + 1 < numColumns_) {
+				FillThinNeighbors(CellAt(cell.row, cell.column + 1));
+			}
+		}
 	}
 
 	void ComputeSums() {
 		for (int row = 0; row < numRows_; row++) {
-			Cell *previousBlock = &CellAt(row, 0);
-			int currentSum = 0;
-			for (int column = 1; column < numColumns_; column++) {
+			for (int column = 0; column < numColumns_; column++) {
 				auto& cell = CellAt(row, column);
-
-				if (cell.isBlock) {
-					previousBlock->sumRow = currentSum;
-					previousBlock = &cell;
-					currentSum = 0;
-				}
-				else {
-					currentSum += cell.number;
-				}
+				cell.Sum();
+				// cell.sumColumn = cell.columnBlockSize;
+				// cell.sumRow = cell.rowBlockSize;
 			}
-
-			previousBlock->sumRow = currentSum;
-		}
-
-		for (int column = 0; column < numColumns_; column++) {
-			Cell *previousBlock = &CellAt(0, column);
-			int currentSum = 0;
-			for (int row = 1; row < numRows_; row++) {
-				auto& cell = CellAt(row, column);
-
-				if (cell.isBlock) {
-					previousBlock->sumColumn = currentSum;
-					previousBlock = &cell;
-					currentSum = 0;
-				}
-				else {
-					currentSum += cell.number;
-				}
-			}
-
-			previousBlock->sumColumn = currentSum;
 		}
 	}
 
@@ -226,6 +362,7 @@ private:
 	int numRows_;
 	int numColumns_;
 	Cell *cells_;
+	int numNumbers_;
 };
 
 int main(int argc, char** argv)
@@ -247,69 +384,98 @@ int main(int argc, char** argv)
 	std::uniform_int_distribution<> numberDistribution{ 1, 9 };
 	std::bernoulli_distribution blockDistribution{ blockProbability };
 
+	std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46> combinations;
+	std::function<void(std::array<bool, 10>, int)> add_number;
+	add_number = [&combinations, &add_number](std::array<bool, 10> numbers, int number) {
+		int count = NumNumbers(numbers);
+		int sum = SumNumbers(numbers);
+		if (numbers[number - 1]) {
+			combinations[sum][count].push_back(numbers);
+		}
+
+		if (number <= 9) {
+			add_number(numbers, number + 1);
+
+			numbers[number] = true;
+			add_number(numbers, number + 1);
+		}
+	};
+	std::array<bool, 10> numbers;
+	ClearNumbers(numbers);
+	add_number(numbers, 1);
+
+	std::array<std::array<std::vector<std::array<bool, 10>>, 46>, 10> combinations_by_count;
+	for (int i = 0; i < 46; i++) {
+		for (int j = 0; j < 10; j++) {
+			combinations_by_count[j][i] = combinations[i][j];
+		}
+	}
+
 	Board board{ numRows, numColumns };
 
 	for (int row = 1; row < board.Rows(); row++) {
-		Cell* currentRowBlock = &board.CellAt(row, 0);
 		for (int column = 1; column < board.Columns(); column++) {
 			auto& cell = board.CellAt(row, column);
-			auto& currentColumnBlock = board.FindColumnBlock(cell);
 
-			int numRowBlockNumbers = currentRowBlock->NumRowNumbers();
-			int numColumnBlockNumbers = currentColumnBlock.NumColumnNumbers();
+			int rowBlockDistance = cell.RowBlockDistance();
+			int columnBlockDistance = cell.ColumnBlockDistance();
 
-			int largerBlockNumbers = numRowBlockNumbers;
-			if (numColumnBlockNumbers > numRowBlockNumbers) {
-				largerBlockNumbers = numColumnBlockNumbers;
+			int maxBlockDistance = rowBlockDistance;
+			if (columnBlockDistance > rowBlockDistance) {
+				maxBlockDistance = columnBlockDistance;
 			}
 
-			int numAttempts = 0;
-			if (numRowBlockNumbers == 1 || numColumnBlockNumbers == 1) {
-				numAttempts = 9;
-			}
-
-			bool isBlock = false;
-			for (int i = 1; i < largerBlockNumbers; i++) {
-				if (blockDistribution(random)) {
-					isBlock = true;
-					break;
-				}
-			}
-
-			if (numAttempts == 0 && isBlock) {
-				cell.isBlock = true;
-				cell.number = 0;
-				currentRowBlock = &cell;
+			if (maxBlockDistance == 10) {
+				board.MakeBlock(cell);
 				continue;
 			}
 
+			if (rowBlockDistance == 2 || columnBlockDistance == 2) {
+				continue;
+			}
+
+			bool isCriticalPath = board.IsCriticalPath(cell);
+
+			if (isCriticalPath) {
+				continue;
+			}
+
+			for (int i = 2; i < maxBlockDistance; i++) {
+				if (blockDistribution(random)) {
+					board.MakeBlock(cell);
+				}
+			}
+		}
+	}
+
+	for (int row = 1; row < board.Rows(); row++) {
+		board.FillThinNeighbors(board.CellAt(row, board.Columns() - 1));
+	}
+
+	for (int column = 1; column < board.Columns(); column++) {
+		board.FillThinNeighbors(board.CellAt(board.Rows() - 1, column));
+	}
+
+	for (int row = 1; row < board.Rows(); row++) {
+		for (int column = 1; column < board.Columns(); column++) {
+			auto& cell = board.CellAt(row, column);
+
+			if (cell.isBlock) {
+				continue;
+			}
+
+			auto& rowBlock = *cell.rowBlock;
+			auto& columnBlock = *cell.columnBlock;
+
 			int attempt = 0;
 			cell.number = numberDistribution(random);
-			while (attempt < numAttempts && (currentRowBlock->rowNumbers[cell.number] || currentColumnBlock.columnNumbers[cell.number])) {
+			while (attempt < 9 && (rowBlock.rowNumbers[cell.number] || columnBlock.columnNumbers[cell.number])) {
 				cell.number = (cell.number % 9) + 1;
 				attempt++;
 			}
 
-			if (row == board.Rows() - 1 && numColumnBlockNumbers == 0) {
-				cell.isBlock = true;
-				cell.number = 0;
-				currentRowBlock = &cell;
-			}
-			else if (column == board.Columns() - 1 && numRowBlockNumbers == 0) {
-				cell.isBlock = true;
-				cell.number = 0;
-				currentRowBlock = &cell;
-			}
-			else if (currentRowBlock->rowNumbers[cell.number] || currentColumnBlock.columnNumbers[cell.number]) {
-				cell.isBlock = true;
-				cell.number = 0;
-				currentRowBlock = &cell;
-			}
-			else {
-				cell.isBlock = false;
-				currentRowBlock->rowNumbers[cell.number] = true;
-				currentColumnBlock.columnNumbers[cell.number] = true;
-			}
+			rowBlock.rowNumbers[cell.number] = true;
+			columnBlock.columnNumbers[cell.number] = true;
 		}
 	}
 
