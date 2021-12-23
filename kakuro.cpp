@@ -5,6 +5,7 @@
 #include <iostream>
 #include <random>
 #include <string>
+#include <unordered_map>
 
 void ClearNumbers(std::array<bool, 10>& numbers) {
 	for (int i = 0; i <= 9; i++) {
@@ -32,6 +33,29 @@ int SumNumbers(std::array<bool, 10>& numbers) {
 	return sum;
 };
 
+int ChooseOneOfNumber(std::array<bool, 10>& numbers, std::mt19937 random) {
+	int numNumbers = NumNumbers(numbers);
+	if (numNumbers == 0) {
+		return 0;
+	}
+
+	std::uniform_int_distribution<> mustBeOneOfDistribution{ 1, numNumbers };
+
+	int whichOneOf = mustBeOneOfDistribution(random);
+	int currentOneOf = 0;
+	for (int i = 1; i <= 9; i++) {
+		if (numbers[i]) {
+			currentOneOf++;
+		}
+
+		if (currentOneOf == whichOneOf) {
+			return i;
+		}
+	}
+
+	return 0;
+}
+
 struct Cell {
 	int row;
 	int column;
@@ -46,6 +70,8 @@ struct Cell {
 	int columnBlockSize;
 	int sumRow;
 	int sumColumn;
+	std::array<bool, 10> cannotBe;
+	std::array<bool, 10> mustBeOneOf;
 
 	void ClearRowNumbers() {
 		ClearNumbers(rowNumbers);
@@ -118,6 +144,9 @@ public:
 
 				cell.ClearColumnNumbers();
 				cell.ClearRowNumbers();
+
+				ClearNumbers(cell.cannotBe);
+				ClearNumbers(cell.mustBeOneOf);
 			}
 		}
 	}
@@ -136,6 +165,32 @@ public:
 
 	Cell& CellAt(int row, int column) {
 		return cells_[row * numColumns_ + column];
+	}
+
+	Cell& FindFreeCell(std::mt19937 random) {
+		std::uniform_int_distribution<> numberDistribution{ 0, numRows_ * numColumns_ - 1 };
+
+		int cellIndex = numberDistribution(random);
+		int startingIndex = cellIndex;
+		while (true) {
+			Cell& cell = cells_[cellIndex];
+
+			if (!cell.isBlock) {
+				if (cell.number == 0) {
+					if (cell.rowBlock->sumRow == 0 || cell.columnBlock->sumColumn == 0) {
+						break;
+					}
+				}
+			}
+
+			cellIndex = (cellIndex + 1) % (numRows_ * numColumns_);
+
+			if (cellIndex == startingIndex) {
+				break;
+			}
+		}
+
+		return cells_[cellIndex];
 	}
 
 	void ClearMarks() {
@@ -256,6 +311,33 @@ public:
 		}
 	}
 
+	void FillNumber(Cell& cell, int number) {
+		if (cell.isBlock) {
+			return;
+		}
+
+		cell.number = number;
+		cell.rowBlock->rowNumbers[number] = true;
+		cell.columnBlock->columnNumbers[number] = true;
+
+		for (int row = cell.columnBlock->row + 1; row < numRows_; row++) {
+			Cell& currentCell = CellAt(row, cell.column);
+			if (currentCell.isBlock) {
+				break;
+			}
+
+			currentCell.cannotBe[cell.number] = true;
+		}
+		for (int column = cell.rowBlock->column + 1; column < numColumns_; column++) {
+			Cell& currentCell = CellAt(cell.row, column);
+			if (currentCell.isBlock) {
+				break;
+			}
+
+			currentCell.cannotBe[cell.number] = true;
+		}
+	}
+
 	void FillThinNeighbors(Cell& cell) {
 		if (cell.isBlock) {
 			return;
@@ -288,6 +370,462 @@ public:
 				FillThinNeighbors(CellAt(cell.row, cell.column + 1));
 			}
 		}
+	}
+
+	std::vector<std::array<bool, 10>> FindRowBlockCandidates(const std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46>& combinations, Cell& cell) {
+		assert(cell.isBlock);
+		assert(cell.sumRow == 0);
+
+		std::size_t minDifficulty = 9;
+		std::vector<std::array<bool, 10>> candidates;
+		std::unordered_map<int, bool> sumSolvable;
+		std::function<void(std::array<bool, 10>, int)> pick;
+		pick = [this, &combinations, &cell, &pick, &minDifficulty, &candidates, &sumSolvable](std::array<bool, 10> numbers, int column) {
+			auto checkPick = [&](std::array<bool, 10> numbers) {
+				int num = NumNumbers(numbers);
+				int sum = SumNumbers(numbers);
+
+				if (num == 0) {
+					return false;
+				}
+
+				auto difficulty = combinations[sum][num].size();
+				if (difficulty <= minDifficulty) {
+					auto query = sumSolvable.find(sum);
+					if (query == sumSolvable.end()) {
+						cell.sumRow = sum;
+						std::cerr << "\t\tSolving for sum " << sum << std::endl;
+						query = sumSolvable.insert({ sum, CheckSolvable() }).first;
+						cell.sumRow = 0;
+					}
+					bool isSolvable = query->second;
+
+					if (isSolvable) {
+						minDifficulty = difficulty;
+					}
+
+					return isSolvable;
+				}
+
+				return false;
+			};
+
+			if (column >= numColumns_) {
+				if (checkPick(numbers)) {
+					candidates.push_back(numbers);
+				}
+				return;
+			}
+
+			Cell& currentCell = CellAt(cell.row, column);
+			
+			if (currentCell.isBlock) {
+				if (checkPick(numbers)) {
+					candidates.push_back(numbers);
+				}
+				return;
+			}
+
+			int numMustBeOneOf = NumNumbers(currentCell.mustBeOneOf);
+			for (int i = 1; i <= 9; i++) {
+				if (numbers[i]) {
+					continue;
+				}
+
+				if (numMustBeOneOf > 0 && !currentCell.mustBeOneOf[i]) {
+					continue;
+				}
+
+				if (currentCell.cannotBe[i]) {
+					continue;
+				}
+
+				std::array<bool, 10> newNumbers = numbers;
+				newNumbers[i] = true;
+				pick(newNumbers, column + 1);
+			}
+		};
+
+		std::array<bool, 10> numbers;
+		ClearNumbers(numbers);
+		pick(numbers, cell.column + 1);		
+
+		return candidates;
+	}
+
+	std::vector<std::array<bool, 10>> FindColumnBlockCandidates(const std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46>& combinations, Cell& cell) {
+		assert(cell.isBlock);
+		assert(cell.sumColumn == 0);
+
+		std::size_t minDifficulty = 9;
+		std::vector<std::array<bool, 10>> candidates;
+		std::unordered_map<int, bool> sumSolvable;
+		std::function<void(std::array<bool, 10>, int)> pick;
+		pick = [this, &combinations, &cell, &pick, &minDifficulty, &candidates, &sumSolvable](std::array<bool, 10> numbers, int row) {
+			auto checkPick = [&](std::array<bool, 10> numbers) {
+				int num = NumNumbers(numbers);
+				int sum = SumNumbers(numbers);
+
+				if (num == 0) {
+					return false;
+				}
+
+				auto difficulty = combinations[sum][num].size();
+				if (difficulty <= minDifficulty) {
+					auto query = sumSolvable.find(sum);
+					if (query == sumSolvable.end()) {
+						cell.sumColumn = sum;
+						std::cerr << "\t\tSolving for sum " << sum << std::endl;
+						query = sumSolvable.insert({ sum, CheckSolvable() }).first;
+						cell.sumColumn = 0;
+					}
+					bool isSolvable = query->second;
+
+					if (isSolvable) {
+						minDifficulty = difficulty;
+					}
+
+					return isSolvable;
+				}
+
+				return false;
+			};
+
+			if (row >= numRows_) {
+				if (checkPick(numbers)) {
+					candidates.push_back(numbers);
+				}
+				return;
+			}
+
+			Cell& currentCell = CellAt(row, cell.column);
+
+			if (currentCell.isBlock) {
+				if (checkPick(numbers)) {
+					candidates.push_back(numbers);
+				}
+				return;
+			}
+
+			int numMustBeOneOf = NumNumbers(currentCell.mustBeOneOf);
+			for (int i = 1; i <= 9; i++) {
+				if (numbers[i]) {
+					continue;
+				}
+
+				if (numMustBeOneOf > 0 && !currentCell.mustBeOneOf[i]) {
+					continue;
+				}
+
+				if (currentCell.cannotBe[i]) {
+					continue;
+				}
+
+				std::array<bool, 10> newNumbers = numbers;
+				newNumbers[i] = true;
+				pick(newNumbers, row + 1);
+			}
+		};
+
+		std::array<bool, 10> numbers;
+		ClearNumbers(numbers);
+		pick(numbers, cell.row + 1);
+
+		return candidates;
+	}
+
+	void ApplyRowConstraints(std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46> combinations, Cell& cell, int rowBlockSize) {
+		if (!cell.isBlock || cell.sumRow == 0) {
+			return;
+		}
+
+		auto sumNumCombinations = combinations[cell.sumRow][rowBlockSize];
+		std::vector<std::vector<int>> sequences;
+
+		for (std::size_t i = 0; i < sumNumCombinations.size(); i++) {
+			auto combination = sumNumCombinations[i];
+
+			std::function<void(std::vector<int>, std::array<bool, 10>, int)> pick;
+			pick = [this, &cell, &pick, &sequences](std::vector<int> sequence, std::array<bool, 10> remainingNumbers, int column) {
+				if (NumNumbers(remainingNumbers) == 0) {
+					sequences.push_back(sequence);
+					return;
+				}
+
+				Cell& currentCell = CellAt(cell.row, column);
+				assert(!currentCell.isBlock);
+
+				for (int i = 1; i <= 9; i++) {
+					if (!remainingNumbers[i]) {
+						continue;
+					}
+
+					if (currentCell.cannotBe[i]) {
+						continue;
+					}
+
+					if (NumNumbers(currentCell.mustBeOneOf) > 0 && !currentCell.mustBeOneOf[i]) {
+						continue;
+					}
+
+					std::vector<int> newSequence = sequence;
+					newSequence.push_back(i);
+					std::array<bool, 10> newRemainingNumbers = remainingNumbers;
+					newRemainingNumbers[i] = false;
+					pick(newSequence, newRemainingNumbers, column + 1);
+				}
+			};
+			
+			std::vector<int> sequence;
+			pick(sequence, combination, cell.column + 1);
+		}
+
+		for (int i = 0; i < rowBlockSize; i++) {
+			int column = cell.column + i + 1;
+			assert(column < numColumns_);
+			Cell& currentCell = CellAt(cell.row, column);
+			assert(!currentCell.isBlock);
+			
+			std::array<bool, 10> usedNumbers;
+			ClearNumbers(usedNumbers);
+			for (auto sequence : sequences) {
+				usedNumbers[sequence[i]] = true;
+			}
+
+			if (NumNumbers(currentCell.mustBeOneOf) > 0) {
+				for (int j = 1; j <= 9; j++) {
+					if (currentCell.mustBeOneOf[j] && !usedNumbers[j]) {
+						currentCell.mustBeOneOf[j] = false;
+					}
+				}
+			}
+			else {
+				for (int j = 1; j <= 9; j++) {
+					currentCell.mustBeOneOf[j] = usedNumbers[j];
+				}
+			}
+
+			for (int j = 1; j <= 9; j++) {
+				if (!usedNumbers[j]) {
+					currentCell.cannotBe[j] = true;
+				}
+			}
+
+			if (NumNumbers(currentCell.mustBeOneOf) == 1) {
+				for (int j = 1; j <= 9; j++) {
+					if (currentCell.mustBeOneOf[j]) {
+						currentCell.number = j;
+					}
+				}
+			}
+		}
+	}
+
+	void ApplyColumnConstraints(std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46> combinations, Cell& cell, int columnBlockSize) {
+		if (!cell.isBlock || cell.sumColumn == 0) {
+			return;
+		}
+
+		auto sumNumCombinations = combinations[cell.sumColumn][columnBlockSize];
+		std::vector<std::vector<int>> sequences;
+
+		for (std::size_t i = 0; i < sumNumCombinations.size(); i++) {
+			auto combination = sumNumCombinations[i];
+
+			std::function<void(std::vector<int>, std::array<bool, 10>, int)> pick;
+			pick = [this, &cell, &pick, &sequences](std::vector<int> sequence, std::array<bool, 10> remainingNumbers, int row) {
+				if (NumNumbers(remainingNumbers) == 0) {
+					sequences.push_back(sequence);
+					return;
+				}
+
+				Cell& currentCell = CellAt(row, cell.column);
+				assert(!currentCell.isBlock);
+
+				for (int i = 1; i <= 9; i++) {
+					if (!remainingNumbers[i]) {
+						continue;
+					}
+
+					if (currentCell.cannotBe[i]) {
+						continue;
+					}
+
+					if (NumNumbers(currentCell.mustBeOneOf) > 0 && !currentCell.mustBeOneOf[i]) {
+						continue;
+					}
+
+					std::vector<int> newSequence = sequence;
+					newSequence.push_back(i);
+					std::array<bool, 10> newRemainingNumbers = remainingNumbers;
+					newRemainingNumbers[i] = false;
+					pick(newSequence, newRemainingNumbers, row + 1);
+				}
+			};
+
+			std::vector<int> sequence;
+			pick(sequence, combination, cell.row + 1);
+		}
+
+		for (int i = 0; i < columnBlockSize; i++) {
+			int row = cell.row + i + 1;
+			assert(row < numRows_);
+			Cell& currentCell = CellAt(row, cell.column);
+			assert(!currentCell.isBlock);
+
+			std::array<bool, 10> usedNumbers;
+			ClearNumbers(usedNumbers);
+			for (auto sequence : sequences) {
+				usedNumbers[sequence[i]] = true;
+			}
+
+			if (NumNumbers(currentCell.mustBeOneOf) > 0) {
+				for (int j = 1; j <= 9; j++) {
+					if (currentCell.mustBeOneOf[j] && !usedNumbers[j]) {
+						currentCell.mustBeOneOf[j] = false;
+					}
+				}
+			}
+			else {
+				for (int j = 1; j <= 9; j++) {
+					currentCell.mustBeOneOf[j] = usedNumbers[j];
+				}
+			}
+
+			for (int j = 1; j <= 9; j++) {
+				if (!usedNumbers[j]) {
+					currentCell.cannotBe[j] = true;
+				}
+			}
+
+			if (NumNumbers(currentCell.mustBeOneOf) == 1) {
+				for (int j = 1; j <= 9; j++) {
+					if (currentCell.mustBeOneOf[j]) {
+						currentCell.number = j;
+					}
+				}
+			}
+		}
+	}
+
+	bool CheckSolvable() {
+		auto *numbers = new int[numColumns_ * numRows_];
+		memset(numbers, 0, numColumns_ * numRows_ * sizeof(int));
+
+		auto checkRowValid = [this, numbers](Cell& rowBlockCell) {
+			assert(rowBlockCell.isBlock);
+
+			int currentSum = 0;
+			std::array<bool, 10> rowNumbers;
+			ClearNumbers(rowNumbers);
+			bool isFull = true;
+
+			for (int column = rowBlockCell.column + 1; column < numColumns_; column++) {
+				Cell& currentCell = CellAt(rowBlockCell.row, column);
+				if (currentCell.isBlock) {
+					break;
+				}
+
+				int number = numbers[currentCell.row * numColumns_ + currentCell.column];
+				if (number == 0) {
+					isFull = false;
+					continue;
+				}
+
+				currentSum += number;
+
+				if (rowNumbers[number]) {
+					return false;
+				}
+
+				rowNumbers[number] = true;
+			}
+
+			if (isFull && rowBlockCell.sumRow > 0 && currentSum != rowBlockCell.sumRow) {
+				return false;
+			}
+
+			return true;
+		};
+
+		auto checkColumnValid = [this, numbers](Cell& columnBlockCell) {
+			assert(columnBlockCell.isBlock);
+
+			int currentSum = 0;
+			std::array<bool, 10> columnNumbers;
+			ClearNumbers(columnNumbers);
+			bool isFull = true;
+
+			for (int row = columnBlockCell.row + 1; row < numRows_; row++) {
+				Cell& currentCell = CellAt(row, columnBlockCell.column);
+				if (currentCell.isBlock) {
+					break;
+				}
+
+				int number = numbers[currentCell.row * numColumns_ + currentCell.column];
+				if (number == 0) {
+					isFull = false;
+					continue;
+				}
+
+				currentSum += number;
+
+				if (columnNumbers[number]) {
+					return false;
+				}
+
+				columnNumbers[number] = true;
+			}
+
+			if (isFull && columnBlockCell.sumColumn > 0 && currentSum != columnBlockCell.sumColumn) {
+				return false;
+			}
+
+			return true;
+		};
+
+		std::function<bool(int)> solve;
+		solve = [this, numbers, &solve, &checkRowValid, &checkColumnValid](int cellIndex) {
+			if (cellIndex >= numColumns_ * numRows_) {
+				return true;
+			}
+
+			Cell& cell = cells_[cellIndex];
+			if (cell.isBlock) {
+				return solve(cellIndex + 1);
+			}
+
+			if (cell.number > 0) {
+				numbers[cellIndex] = cell.number;
+				return solve(cellIndex + 1);
+			}
+
+			for (int i = 1; i <= 9; i++) {
+				if (cell.cannotBe[i]) {
+					continue;
+				}
+
+				if (NumNumbers(cell.mustBeOneOf) && !cell.mustBeOneOf[i]) {
+					continue;
+				}
+
+				numbers[cellIndex] = i;
+				bool isRowValid = checkRowValid(*cell.rowBlock);
+				bool isColumnValid = checkColumnValid(*cell.columnBlock);
+				if (isRowValid && isColumnValid) {
+					if (solve(cellIndex + 1)) {
+						return true;
+					}
+				}
+				numbers[cellIndex] = 0;
+			}
+
+			return false;
+		};
+
+		bool result = solve(0);
+		delete[] numbers;
+		return result;
 	}
 
 	void ComputeSums() {
@@ -380,9 +918,11 @@ int main(int argc, char** argv)
 	double blockProbability = std::atof(argv[3]);
 
 	std::random_device randomDevice;
-	std::mt19937 random{ randomDevice() };
+	std::mt19937 random;
+	random.seed(3);
 	std::uniform_int_distribution<> numberDistribution{ 1, 9 };
 	std::bernoulli_distribution blockDistribution{ blockProbability };
+	std::bernoulli_distribution coinFlipDistribution{ 0.5 };
 
 	std::array<std::array<std::vector<std::array<bool, 10>>, 10>, 46> combinations;
 	std::function<void(std::array<bool, 10>, int)> add_number;
@@ -413,6 +953,7 @@ int main(int argc, char** argv)
 
 	Board board{ numRows, numColumns };
 
+	std::cerr << "Generating board..." << std::endl;
 	for (int row = 1; row < board.Rows(); row++) {
 		for (int column = 1; column < board.Columns(); column++) {
 			auto& cell = board.CellAt(row, column);
@@ -448,6 +989,7 @@ int main(int argc, char** argv)
 		}
 	}
 
+	std::cerr << "Patching border..." << std::endl;
 	for (int row = 1; row < board.Rows(); row++) {
 		board.FillThinNeighbors(board.CellAt(row, board.Columns() - 1));
 	}
@@ -456,6 +998,99 @@ int main(int argc, char** argv)
 		board.FillThinNeighbors(board.CellAt(board.Rows() - 1, column));
 	}
 
+	auto findMinDifficultyCandidate = [&combinations](const std::vector<std::array<bool, 10>>& candidates) {
+		std::size_t minDifficulty = 9;
+		std::size_t minDifficultyIndex = 0;
+
+		for (std::size_t i = 0; i < candidates.size(); i++) {
+			auto candidate = candidates[i];
+			int candidateNum = NumNumbers(candidate);
+			int candidateSum = SumNumbers(candidate);
+
+			auto difficulty = combinations[candidateSum][candidateNum].size();
+			if (difficulty < minDifficulty) {
+				minDifficultyIndex = i;
+				minDifficulty = difficulty;
+			}
+		}
+
+		return minDifficultyIndex;
+	};
+
+	std::cerr << "Generating sums..." << std::endl;
+	while (true) {
+		Cell& cell = board.FindFreeCell(random);
+		if (cell.isBlock || cell.number > 0) {
+			break;
+		}
+
+		bool hasRowSum = cell.rowBlock->sumRow > 0;
+		bool hasColumnSum = cell.columnBlock->sumColumn > 0;
+		if (hasRowSum && hasColumnSum) {
+			break;
+		}
+
+		bool fillRowSum = !hasRowSum;
+		if (!hasRowSum && !hasColumnSum) {
+			fillRowSum = coinFlipDistribution(random);
+		}
+
+		if (fillRowSum) {
+			std::cerr << "\tFinding row sum for (" << cell.row << ", " << cell.column << ") " << std::endl;
+			auto rowBlockCandidates = board.FindRowBlockCandidates(combinations, *cell.rowBlock);
+			if (rowBlockCandidates.empty()) {
+				break;
+			}
+
+			auto minDifficultyIndex = findMinDifficultyCandidate(rowBlockCandidates);
+			auto chosenCandidate = rowBlockCandidates[minDifficultyIndex];
+			int candidateNum = NumNumbers(chosenCandidate);
+			int candidateSum = SumNumbers(chosenCandidate);
+			cell.rowBlock->sumRow = candidateSum;
+
+			board.ApplyRowConstraints(combinations, *cell.rowBlock, candidateNum);
+
+			std::cerr << "\tAdded row sum for (" << cell.row << ", " << cell.column << "): " << candidateSum
+				<< " (candidates: " << rowBlockCandidates.size() << ")" << std::endl;
+		}
+		else
+		{
+			std::cerr << "\tFinding column sum for (" << cell.row << ", " << cell.column << ") " << std::endl;
+			auto columnBlockCandidates = board.FindColumnBlockCandidates(combinations, *cell.columnBlock);
+			if (columnBlockCandidates.empty()) {
+				break;
+			}
+
+			auto minDifficultyIndex = findMinDifficultyCandidate(columnBlockCandidates);
+			auto chosenCandidate = columnBlockCandidates[minDifficultyIndex];
+			int candidateNum = NumNumbers(chosenCandidate);
+			int candidateSum = SumNumbers(chosenCandidate);
+			cell.columnBlock->sumColumn = candidateSum;
+
+			board.ApplyColumnConstraints(combinations, *cell.columnBlock, candidateNum);
+
+			std::cerr << "\tAdded column sum for (" << cell.row << ", " << cell.column << "): " << candidateSum
+				<< " (candidates: " << columnBlockCandidates.size() << ")" << std::endl;
+		}
+
+		/*
+		int chosenOneOf = ChooseOneOfNumber(cell.mustBeOneOf, random);
+		if (chosenOneOf > 0) {
+			board.FillNumber(cell, chosenOneOf);
+		}
+
+		int attempt = 0;
+		int number = numberDistribution(random);
+		while (attempt < 9 && cell.cannotBe[number]) {
+			number = (number % 9) + 1;
+			attempt++;
+		}
+
+		board.FillNumber(cell, number);
+		*/
+	}
+
+	/*
 	for (int row = 1; row < board.Rows(); row++) {
 		for (int column = 1; column < board.Columns(); column++) {
 			auto& cell = board.CellAt(row, column);
@@ -478,8 +1113,9 @@ int main(int argc, char** argv)
 			columnBlock.columnNumbers[cell.number] = true;
 		}
 	}
+	*/
 
-	board.ComputeSums();
+	// board.ComputeSums();
 	board.Print();
 
 	return EXIT_SUCCESS;
