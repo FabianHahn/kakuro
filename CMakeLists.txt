@@ -6,7 +6,9 @@ enable_testing()
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(KAKURO_SRC
+	board.h
 	kakuro.cpp
+	numbers.h
 )
 
 add_executable(kakuro ${KAKURO_SRC})

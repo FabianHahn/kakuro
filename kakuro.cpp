@@ -1,11 +1,15 @@
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <random>
 #include <string>
 #include <unordered_map>
+
+#include "board.h"
+#include "numbers.h"
 
 void ClearNumbers(std::array<bool, 10>& numbers) {
 	for (int i = 0; i <= 9; i++) {
