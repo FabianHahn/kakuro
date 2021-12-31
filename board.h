@@ -41,8 +41,8 @@ public:
   Board(int rows, int columns)
       : rows_{rows}
       , columns_{columns}
-      , cells_{static_cast<std::size_t>(rows * columns)}
-      , numNumbers_{(rows - 1) * (columns - 1)} {
+      , numbers_{(rows - 1) * (columns - 1)}
+      , cells_{static_cast<std::size_t>(rows * columns)} {
     for (int row = 0; row < rows_; row++) {
       for (int column = 0; column < columns_; column++) {
         auto& cell = (*this)(row, column);
@@ -78,6 +78,12 @@ public:
       }
     }
   }
+
+  int Rows() const { return rows_; }
+
+  int Columns() const { return columns_; }
+
+  int Numbers() const { return numbers_; }
 
   Cell& operator()(int row, int column) {
     assert(row >= 0);
@@ -143,7 +149,7 @@ public:
     oldRowBlock.rowBlockSum -= cell.number;
     oldColumnBlock.columnBlockSum -= cell.number;
 
-    numNumbers_--;
+    numbers_--;
     cell.number = 0;
     cell.isBlock = true;
     cell.columnBlockSize = 0;
@@ -229,8 +235,8 @@ public:
 private:
   int rows_;
   int columns_;
+  int numbers_;
   std::vector<Cell> cells_;
-  int numNumbers_;
 };
 
 }

@@ -7,6 +7,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(KAKURO_SRC
 	board.h
+	board_generator.h
+	critical_path_finder.h
 	kakuro.cpp
 	numbers.h
 )
