@@ -8,11 +8,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "board.h"
-#include "board_generator.h"
-#include "critical_path_finder.h"
-#include "numbers.h"
-
 void ClearNumbers(std::array<bool, 10>& numbers) {
 	for (int i = 0; i <= 9; i++) {
 		numbers[i] = false;

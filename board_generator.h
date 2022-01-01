@@ -49,10 +49,52 @@ public:
       }
     }
 
+    for (int row = 1; row < board.Rows(); row++) {
+      FillThinNeighbors(board, board(row, board.Columns() - 1));
+    }
+
+    for (int column = 1; column < board.Columns(); column++) {
+      FillThinNeighbors(board, board(board.Rows() - 1, column));
+    }
+
     return board;
   }
 
 private:
+  void FillThinNeighbors(Board& board, Cell& cell) {
+    if (cell.isBlock) {
+      return;
+    }
+
+    int rowBlockDistance = cell.RowBlockDistance();
+    int columnBlockDistance = cell.ColumnBlockDistance();
+
+    bool isNextRowFree = false;
+    if (cell.row + 1 < board.Rows() && !board(cell.row + 1, cell.column).isBlock) {
+      isNextRowFree = true;
+    }
+
+    bool isNextColumnFree = false;
+    if (cell.column + 1 < board.Columns() && !board(cell.row, cell.column + 1).isBlock) {
+      isNextColumnFree = true;
+    }
+
+    bool isLockedInRows = columnBlockDistance == 1 && !isNextRowFree;
+    bool isLockedInColumns = rowBlockDistance == 1 && !isNextColumnFree;
+    if (isLockedInRows || isLockedInColumns) {
+      board.MakeBlock(cell);
+      FillThinNeighbors(board, board(cell.row - 1, cell.column));
+      FillThinNeighbors(board, board(cell.row, cell.column - 1));
+
+      if (cell.row + 1 < board.Rows()) {
+        FillThinNeighbors(board, board(cell.row + 1, cell.column));
+      }
+      if (cell.column + 1 < board.Columns()) {
+        FillThinNeighbors(board, board(cell.row, cell.column + 1));
+      }
+    }
+  }
+
   std::mt19937& random_;
   std::bernoulli_distribution blockDistribution_;
 };
