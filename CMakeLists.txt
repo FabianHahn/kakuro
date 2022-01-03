@@ -16,6 +16,7 @@ set(KAKURO2_SRC
 	critical_path_finder.h
 	kakuro2.cpp
 	numbers.h
+	solver.h
 )
 
 add_executable(kakuro ${KAKURO_SRC})

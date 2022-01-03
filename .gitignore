@@ -2,3 +2,4 @@
 build
 cmake-*
 *.html
+CMakeLists.txt.user

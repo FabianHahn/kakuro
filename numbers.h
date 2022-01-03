@@ -18,6 +18,12 @@ public:
     bitset_.set(number - 1);
   }
 
+  void Remove(int number) {
+    assert(number > 0);
+    assert(number <= 9);
+    bitset_.reset(number - 1);
+  }
+
   bool Has(int number) const {
     assert(number > 0);
     assert(number <= 9);
@@ -40,6 +46,10 @@ public:
 
   void Clear() {
     bitset_.reset();
+  }
+
+  void Fill() {
+    bitset_.set();
   }
 
 private:

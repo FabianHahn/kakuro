@@ -1,6 +1,7 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include "numbers.h"
 #include <cassert>
 #include <functional>
 #include <vector>
@@ -11,15 +12,18 @@ struct Cell {
   int row;
   int column;
   int number;
+  Numbers numberCandidates;
   bool isBlock;
   int rowBlockRow;
   int rowBlockColumn;
   int rowBlockSize;
   int rowBlockSum;
+  Numbers rowBlockNumbers;
   int columnBlockRow;
   int columnBlockColumn;
   int columnBlockSize;
   int columnBlockSum;
+  Numbers columnBlockNumbers;
 
   int RowBlockDistance() {
     if (isBlock) {
@@ -39,16 +43,17 @@ struct Cell {
 class Board {
 public:
   Board(int rows, int columns)
-      : rows_{rows}
-      , columns_{columns}
-      , numbers_{(rows - 1) * (columns - 1)}
-      , cells_{static_cast<std::size_t>(rows * columns)} {
+      : rows_{rows},
+        columns_{columns},
+        numbers_{(rows - 1) * (columns - 1)},
+        cells_{static_cast<std::size_t>(rows * columns)} {
     for (int row = 0; row < rows_; row++) {
       for (int column = 0; column < columns_; column++) {
         auto& cell = (*this)(row, column);
         cell.row = row;
         cell.column = column;
         cell.number = 0;
+        cell.numberCandidates.Fill();
         cell.isBlock = false;
 
         if (column == 0) {
@@ -137,6 +142,51 @@ public:
     }
   }
 
+  int ForEachFreeNeighborCell(Cell& cell, const std::function<bool(Cell&)>& callback) {
+    bool isLeftBorder = cell.column == 0;
+    bool isTopBorder = cell.row == 0;
+    bool isRightBorder = cell.column == Columns() - 1;
+    bool isBottomBorder = cell.row == Rows() - 1;
+
+    if (!isLeftBorder) {
+      Cell& leftCell = (*this)(cell.row, cell.column - 1);
+      if (!leftCell.isBlock && leftCell.number == 0) {
+        if (callback(leftCell)) {
+          return true;
+        }
+      }
+    }
+
+    if (!isTopBorder) {
+      Cell& topCell = (*this)(cell.row - 1, cell.column);
+      if (!topCell.isBlock && topCell.number == 0) {
+        if (callback(topCell)) {
+          return true;
+        }
+      }
+    }
+
+    if (!isRightBorder) {
+      Cell& rightCell = (*this)(cell.row, cell.column + 1);
+      if (!rightCell.isBlock && rightCell.number == 0) {
+        if (callback(rightCell)) {
+          return true;
+        }
+      }
+    }
+
+    if (!isBottomBorder) {
+      Cell& bottomCell = (*this)(cell.row + 1, cell.column);
+      if (!bottomCell.isBlock && bottomCell.number == 0) {
+        if (callback(bottomCell)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   void MakeBlock(Cell& cell) {
     if (cell.isBlock) {
       return;
@@ -154,25 +204,94 @@ public:
     cell.isBlock = true;
     cell.columnBlockSize = 0;
     cell.columnBlockSum = 0;
-    ForEachColumnBlockCell(
-        cell, [&cell, &oldColumnBlock](Cell& currentCell) {
-          currentCell.columnBlockRow = cell.row;
-          currentCell.columnBlockColumn = cell.column;
-          cell.columnBlockSize++;
-          oldColumnBlock.columnBlockSum -= cell.number;
-          cell.columnBlockSum += cell.number;
-        });
+    ForEachColumnBlockCell(cell, [&cell, &oldColumnBlock](Cell& currentCell) {
+      currentCell.columnBlockRow = cell.row;
+      currentCell.columnBlockColumn = cell.column;
+      cell.columnBlockSize++;
+      oldColumnBlock.columnBlockSum -= cell.number;
+      cell.columnBlockSum += cell.number;
+    });
 
     cell.rowBlockSize = 0;
     cell.rowBlockSum = 0;
-    ForEachRowBlockCell(
-        cell, [&cell, &oldRowBlock](Cell& currentCell) {
-          currentCell.rowBlockRow = cell.row;
-          currentCell.rowBlockColumn = cell.column;
-          cell.rowBlockSize++;
-          oldRowBlock.rowBlockSum -= cell.number;
-          cell.rowBlockSum += cell.number;
-        });
+    ForEachRowBlockCell(cell, [&cell, &oldRowBlock](Cell& currentCell) {
+      currentCell.rowBlockRow = cell.row;
+      currentCell.rowBlockColumn = cell.column;
+      cell.rowBlockSize++;
+      oldRowBlock.rowBlockSum -= cell.number;
+      cell.rowBlockSum += cell.number;
+    });
+  }
+
+  struct FillNumberUndoContext {
+    int row;
+    int column;
+    std::vector<std::pair<int, int>> candidatesRemoved;
+  };
+
+  bool FillNumber(Cell& cell, int number, FillNumberUndoContext& undoContext) {
+    undoContext.row = cell.row;
+    undoContext.column = cell.column;
+    undoContext.candidatesRemoved.clear();
+
+    if (cell.isBlock || cell.number != 0) {
+      return false;
+    }
+
+    Cell& rowBlock = RowBlock(cell);
+    Cell& columnBlock = ColumnBlock(cell);
+
+    bool canBeNumber = cell.numberCandidates.Has(number);
+    bool rowBlockHasNumber = rowBlock.rowBlockNumbers.Has(number);
+    bool columnBlockHasNumber = rowBlock.columnBlockNumbers.Has(number);
+
+    if (!canBeNumber || rowBlockHasNumber || columnBlockHasNumber) {
+      return false;
+    }
+
+    if (rowBlock.rowBlockSum > 0) {
+      bool isLastRowBlockNumber = rowBlock.rowBlockNumbers.Count() + 1 == rowBlock.rowBlockSize;
+      if (isLastRowBlockNumber && rowBlock.rowBlockNumbers.Sum() + number != rowBlock.rowBlockSum) {
+        return false;
+      }
+    }
+
+    if (columnBlock.columnBlockSum > 0) {
+      bool isLastColumnBlockNumber =
+          columnBlock.columnBlockNumbers.Count() + 1 == columnBlock.columnBlockSize;
+      if (isLastColumnBlockNumber &&
+          columnBlock.columnBlockNumbers.Sum() + number != columnBlock.columnBlockSum) {
+        return false;
+      }
+    }
+
+    cell.number = number;
+    rowBlock.rowBlockNumbers.Add(number);
+    columnBlock.columnBlockNumbers.Add(number);
+
+    auto removeNumberCandidate = [number, &undoContext](Cell& currentCell) {
+      if (currentCell.numberCandidates.Has(number)) {
+        undoContext.candidatesRemoved.emplace_back(currentCell.row, currentCell.column);
+        currentCell.numberCandidates.Remove(number);
+      }
+    };
+    ForEachColumnBlockCell(ColumnBlock(cell), removeNumberCandidate);
+    ForEachRowBlockCell(RowBlock(cell), removeNumberCandidate);
+
+    return true;
+  }
+
+  void UndoFillNumber(const FillNumberUndoContext& undoContext) {
+    Cell& cell = (*this)(undoContext.row, undoContext.column);
+
+    for (auto& currentCellCoordinates : undoContext.candidatesRemoved) {
+      Cell& currentCell = (*this)(currentCellCoordinates.first, currentCellCoordinates.second);
+      currentCell.numberCandidates.Add(cell.number);
+    }
+
+    RowBlock(cell).rowBlockNumbers.Remove(cell.number);
+    ColumnBlock(cell).columnBlockNumbers.Remove(cell.number);
+    cell.number = 0;
   }
 
   void RenderHtml(std::ostream& output) {
@@ -208,12 +327,12 @@ public:
           output << "\t\t\t<table style=\"width: 100%; height: 100%;\">" << std::endl;
           output << "\t\t\t\t<tr>" << std::endl;
           output << "\t\t\t\t\t<td></td>" << std::endl;
-          output << "\t\t\t\t\t<td style=\"text-align:right;\">" << ifNonZero(cell.rowBlockSum) << "</td>"
-              << std::endl;
+          output << "\t\t\t\t\t<td style=\"text-align:right;\">" << ifNonZero(cell.rowBlockSum)
+                 << "</td>" << std::endl;
           output << "\t\t\t\t</tr>" << std::endl;
           output << "\t\t\t\t<tr>" << std::endl;
-          output << "\t\t\t\t\t<td style=\"text-align:left;\">" << ifNonZero(cell.columnBlockSum) << "</td>"
-              << std::endl;
+          output << "\t\t\t\t\t<td style=\"text-align:left;\">" << ifNonZero(cell.columnBlockSum)
+                 << "</td>" << std::endl;
           output << "\t\t\t\t\t<td></td>" << std::endl;
           output << "\t\t\t\t</tr>" << std::endl;
           output << "\t\t\t</table>" << std::endl;
@@ -239,6 +358,6 @@ private:
   std::vector<Cell> cells_;
 };
 
-}
+} // namespace kakuro
 
 #endif
