@@ -40,8 +40,12 @@ private:
   }
 
   bool SolveCell(Board& board, Cell& cell) {
-    if (cell.isBlock || cell.number != 0) {
+    if (cell.isBlock) {
       return false;
+    }
+
+    if (cell.number != 0) {
+      return true; // already solved
     }
 
     for (int number = 1; number <= 9; number++) {
@@ -54,13 +58,9 @@ private:
         continue;
       }
 
-      bool noCellsVisited = true;
-      bool foundSolution =
-          board.ForEachFreeNeighborCell(cell, [this, &board, &noCellsVisited](Cell& currentCell) {
-            noCellsVisited = false;
-            return SolveCell(board, currentCell);
-          });
-      if (foundSolution || noCellsVisited) {
+      bool foundSolution = board.ForEachFreeNeighborCell(
+          cell, [this, &board](Cell& currentCell) { return SolveCell(board, currentCell); });
+      if (foundSolution) {
         return true;
       }
 

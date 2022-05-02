@@ -158,8 +158,8 @@ public:
     if (!isLeftBorder) {
       Cell& leftCell = (*this)(cell.row, cell.column - 1);
       if (!leftCell.isBlock && leftCell.number == 0) {
-        if (callback(leftCell)) {
-          return true;
+        if (!callback(leftCell)) {
+          return false;
         }
       }
     }
@@ -167,8 +167,8 @@ public:
     if (!isTopBorder) {
       Cell& topCell = (*this)(cell.row - 1, cell.column);
       if (!topCell.isBlock && topCell.number == 0) {
-        if (callback(topCell)) {
-          return true;
+        if (!callback(topCell)) {
+          return false;
         }
       }
     }
@@ -176,8 +176,8 @@ public:
     if (!isRightBorder) {
       Cell& rightCell = (*this)(cell.row, cell.column + 1);
       if (!rightCell.isBlock && rightCell.number == 0) {
-        if (callback(rightCell)) {
-          return true;
+        if (!callback(rightCell)) {
+          return false;
         }
       }
     }
@@ -185,13 +185,13 @@ public:
     if (!isBottomBorder) {
       Cell& bottomCell = (*this)(cell.row + 1, cell.column);
       if (!bottomCell.isBlock && bottomCell.number == 0) {
-        if (callback(bottomCell)) {
-          return true;
+        if (!callback(bottomCell)) {
+          return false;
         }
       }
     }
 
-    return false;
+    return true;
   }
 
   void MakeBlock(Cell& cell) {
