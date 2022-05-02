@@ -2,6 +2,7 @@
 #include "board_generator.h"
 #include "critical_path_finder.h"
 #include "numbers.h"
+#include "solution_generator.h"
 #include "solver.h"
 #include <fstream>
 #include <iostream>
