@@ -1,16 +1,15 @@
 #ifndef BOARD_GENERATOR_H
 #define BOARD_GENERATOR_H
 
-#include <random>
 #include "critical_path_finder.h"
+#include <random>
 
 namespace kakuro {
 
 class BoardGenerator {
 public:
   BoardGenerator(std::mt19937& random, double blockProbability)
-      : random_{random}
-      , blockDistribution_{blockProbability} {}
+      : random_{random}, blockDistribution_{blockProbability} {}
 
   Board Generate(int rows, int columns) {
     Board board{rows, columns};
@@ -99,6 +98,6 @@ private:
   std::bernoulli_distribution blockDistribution_;
 };
 
-}
+} // namespace kakuro
 
 #endif

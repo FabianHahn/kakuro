@@ -4,6 +4,7 @@
 #include "numbers.h"
 #include <cassert>
 #include <functional>
+#include <iostream>
 #include <vector>
 
 namespace kakuro {

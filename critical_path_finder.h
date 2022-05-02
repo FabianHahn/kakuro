@@ -6,15 +6,14 @@ namespace kakuro {
 class CriticalPathFinder {
 public:
   CriticalPathFinder(Board& board)
-      : board_{board}
-      , visited_(static_cast<std::size_t>(board.Rows() * board.Columns())) {}
+      : board_{board}, visited_(static_cast<std::size_t>(board.Rows() * board.Columns())) {}
 
   bool IsCriticalPath(Cell& cell) {
     if (cell.isBlock) {
       return false;
     }
 
-    Cell &topCell = board_(cell.row - 1, cell.column);
+    Cell& topCell = board_(cell.row - 1, cell.column);
     if (!topCell.isBlock) {
       ClearMarked();
       Mark(cell);
@@ -24,7 +23,7 @@ public:
       }
     }
 
-    Cell &leftCell = board_(cell.row, cell.column - 1);
+    Cell& leftCell = board_(cell.row, cell.column - 1);
     if (!leftCell.isBlock) {
       ClearMarked();
       Mark(cell);
@@ -67,13 +66,9 @@ private:
     visited_.resize(board_.Rows() * board_.Columns(), false);
   }
 
-  void Mark(Cell& cell) {
-    visited_[cell.row * board_.Columns() + cell.column] = true;
-  }
+  void Mark(Cell& cell) { visited_[cell.row * board_.Columns() + cell.column] = true; }
 
-  bool IsMarked(Cell& cell) const {
-    return visited_[cell.row * board_.Columns() + cell.column];
-  }
+  bool IsMarked(Cell& cell) const { return visited_[cell.row * board_.Columns() + cell.column]; }
 
   int CountReachableCells(Cell& cell) {
     if (cell.isBlock || IsMarked(cell)) {
@@ -100,6 +95,6 @@ private:
   std::vector<bool> visited_;
 };
 
-}
+} // namespace kakuro
 
 #endif

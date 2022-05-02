@@ -8,9 +8,7 @@ namespace kakuro {
 
 class Numbers {
 public:
-  Numbers() : bitset_{} {
-
-  }
+  Numbers() : bitset_{} {}
 
   void Add(int number) {
     assert(number > 0);
@@ -30,9 +28,7 @@ public:
     return bitset_[number - 1];
   }
 
-  int Count() const {
-    return static_cast<int>(bitset_.count());
-  }
+  int Count() const { return static_cast<int>(bitset_.count()); }
 
   int Sum() const {
     int sum = 0;
@@ -44,18 +40,14 @@ public:
     return sum;
   }
 
-  void Clear() {
-    bitset_.reset();
-  }
+  void Clear() { bitset_.reset(); }
 
-  void Fill() {
-    bitset_.set();
-  }
+  void Fill() { bitset_.set(); }
 
 private:
   std::bitset<9> bitset_;
 };
 
-}
+} // namespace kakuro
 
 #endif

@@ -1,10 +1,9 @@
 #ifndef COMBINATIONS_H
 #define COMBINATIONS_H
 
+#include "numbers.h"
 #include <array>
 #include <vector>
-
-#include "numbers.h"
 
 namespace kakuro {
 
@@ -34,6 +33,6 @@ private:
   std::array<std::array<std::vector<Numbers>, 10>, 46> combinations;
 };
 
-}
+} // namespace kakuro
 
 #endif
