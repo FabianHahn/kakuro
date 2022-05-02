@@ -99,6 +99,12 @@ public:
     return cells_[row * columns_ + column];
   }
 
+  Cell& operator[](int index) {
+    assert(index >= 0);
+    assert(index < rows_ * columns_);
+    return cells_[index];
+  }
+
   Cell& RowBlock(Cell& cell) {
     if (cell.isBlock) {
       return cell;
