@@ -14,6 +14,12 @@ public:
     AddNumber(numbers, 1);
   }
 
+  const std::array<std::vector<Numbers>, 10>& operator[](int index) const {
+    assert(index >= 0);
+    assert(index < 46);
+    return combinations[index];
+  }
+
 private:
   void AddNumber(Numbers numbers, int number) {
     int count = numbers.Count();
