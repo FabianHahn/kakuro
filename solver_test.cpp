@@ -68,3 +68,18 @@ TEST(SolverTest, SolveImpossible) {
 
   ASSERT_FALSE(result);
 }
+
+TEST(SolverTest, SolveStar) {
+  Board board{4, 4};
+  board.MakeBlock(board(1, 1));
+  board.MakeBlock(board(1, 3));
+  board.MakeBlock(board(3, 1));
+  board.MakeBlock(board(3, 3));
+  board(1, 1).rowBlockSum = 1;
+  board(1, 3).columnBlockSum = 1;
+
+  Solver solver;
+  bool result = solver.Solve(board);
+
+  ASSERT_TRUE(result);
+}

@@ -26,18 +26,22 @@ struct Cell {
   int columnBlockSum;
   Numbers columnBlockNumbers;
 
-  int RowBlockDistance() {
+  int RowBlockDistance() const {
     if (isBlock) {
       return 0;
     }
     return column - rowBlockColumn;
   }
 
-  int ColumnBlockDistance() {
+  int ColumnBlockDistance() const {
     if (isBlock) {
       return 0;
     }
     return row - columnBlockRow;
+  }
+
+  bool IsFree() const {
+    return !isBlock && number == 0;
   }
 };
 
@@ -157,7 +161,7 @@ public:
 
     if (!isLeftBorder) {
       Cell& leftCell = (*this)(cell.row, cell.column - 1);
-      if (!leftCell.isBlock && leftCell.number == 0) {
+      if (leftCell.IsFree()) {
         if (!callback(leftCell)) {
           return false;
         }
@@ -166,7 +170,7 @@ public:
 
     if (!isTopBorder) {
       Cell& topCell = (*this)(cell.row - 1, cell.column);
-      if (!topCell.isBlock && topCell.number == 0) {
+      if (topCell.IsFree()) {
         if (!callback(topCell)) {
           return false;
         }
@@ -175,7 +179,7 @@ public:
 
     if (!isRightBorder) {
       Cell& rightCell = (*this)(cell.row, cell.column + 1);
-      if (!rightCell.isBlock && rightCell.number == 0) {
+      if (rightCell.IsFree()) {
         if (!callback(rightCell)) {
           return false;
         }
@@ -184,7 +188,7 @@ public:
 
     if (!isBottomBorder) {
       Cell& bottomCell = (*this)(cell.row + 1, cell.column);
-      if (!bottomCell.isBlock && bottomCell.number == 0) {
+      if (bottomCell.IsFree()) {
         if (!callback(bottomCell)) {
           return false;
         }
@@ -250,7 +254,7 @@ public:
 
     bool canBeNumber = cell.numberCandidates.Has(number);
     bool rowBlockHasNumber = rowBlock.rowBlockNumbers.Has(number);
-    bool columnBlockHasNumber = rowBlock.columnBlockNumbers.Has(number);
+    bool columnBlockHasNumber = columnBlock.columnBlockNumbers.Has(number);
 
     if (!canBeNumber || rowBlockHasNumber || columnBlockHasNumber) {
       return false;
