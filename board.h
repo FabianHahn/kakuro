@@ -18,11 +18,13 @@ struct Cell {
   int rowBlockRow;
   int rowBlockColumn;
   int rowBlockSize;
+  int rowBlockFree;
   int rowBlockSum;
   Numbers rowBlockNumbers;
   int columnBlockRow;
   int columnBlockColumn;
   int columnBlockSize;
+  int columnBlockFree;
   int columnBlockSum;
   Numbers columnBlockNumbers;
 
@@ -66,10 +68,12 @@ public:
           cell.rowBlockRow = 0;
           cell.rowBlockColumn = 0;
           cell.rowBlockSize = columns_ - 1;
+          cell.rowBlockFree = columns_ - 1;
         } else {
           cell.rowBlockRow = row;
           cell.rowBlockColumn = 0;
           cell.rowBlockSize = 0;
+          cell.rowBlockFree = 0;
         }
 
         if (row == 0) {
@@ -77,10 +81,12 @@ public:
           cell.columnBlockRow = 0;
           cell.columnBlockColumn = 0;
           cell.columnBlockSize = rows_ - 1;
+          cell.columnBlockFree = rows_ - 1;
         } else {
           cell.columnBlockRow = 0;
           cell.columnBlockColumn = column;
           cell.columnBlockSize = 0;
+          cell.columnBlockFree = 0;
         }
 
         cell.rowBlockSum = 0;
@@ -123,6 +129,29 @@ public:
     }
 
     return (*this)(cell.columnBlockRow, cell.columnBlockColumn);
+  }
+
+  int IsTrivialCell(Cell& cell) {
+    assert(cell.IsFree());
+
+    // Check if cell is trivial because neighbor constraints say there is only one possible number.
+    if (cell.numberCandidates.Count() == 1) {
+      return cell.numberCandidates.Sum();
+    }
+
+    // Check if cell is trivial because it is the only free number left in its row block.
+    Cell& rowBlock = RowBlock(cell);
+    if (rowBlock.rowBlockFree == 1) {
+      return rowBlock.rowBlockSum - rowBlock.rowBlockNumbers.Sum();
+    }
+
+    // Check if cell is trivial because it is the only free number left in its column block.
+    Cell& columnBlock = ColumnBlock(cell);
+    if (columnBlock.columnBlockFree == 1) {
+      return columnBlock.columnBlockSum - columnBlock.columnBlockNumbers.Sum();
+    }
+
+    return 0;
   }
 
   void ForEachRowBlockCell(Cell& cell, const std::function<void(Cell&)>& callback) {
@@ -199,14 +228,14 @@ public:
   }
 
   void MakeBlock(Cell& cell) {
-    if (cell.isBlock) {
-      return;
-    }
+    assert(cell.IsFree());
 
     auto& oldRowBlock = RowBlock(cell);
     auto& oldColumnBlock = ColumnBlock(cell);
     oldRowBlock.rowBlockSize = cell.RowBlockDistance() - 1;
+    oldRowBlock.rowBlockFree--; // subtract one for this cell, more below
     oldColumnBlock.columnBlockSize = cell.ColumnBlockDistance() - 1;
+    oldColumnBlock.columnBlockFree--; // subtract one for this cell, more below
     oldRowBlock.rowBlockSum -= cell.number;
     oldColumnBlock.columnBlockSum -= cell.number;
 
@@ -214,6 +243,7 @@ public:
     cell.number = 0;
     cell.isBlock = true;
     cell.columnBlockSize = 0;
+    cell.columnBlockFree = 0;
     cell.columnBlockSum = 0;
     ForEachColumnBlockCell(cell, [&cell, &oldColumnBlock](Cell& currentCell) {
       currentCell.columnBlockRow = cell.row;
@@ -221,9 +251,16 @@ public:
       cell.columnBlockSize++;
       oldColumnBlock.columnBlockSum -= cell.number;
       cell.columnBlockSum += cell.number;
+
+      if (currentCell.IsFree()) {
+        // remove a free cell from old column block, and add one to this
+        oldColumnBlock.columnBlockFree--;
+        cell.columnBlockFree++;
+      }
     });
 
     cell.rowBlockSize = 0;
+    cell.rowBlockFree = 0;
     cell.rowBlockSum = 0;
     ForEachRowBlockCell(cell, [&cell, &oldRowBlock](Cell& currentCell) {
       currentCell.rowBlockRow = cell.row;
@@ -231,6 +268,12 @@ public:
       cell.rowBlockSize++;
       oldRowBlock.rowBlockSum -= cell.number;
       cell.rowBlockSum += cell.number;
+
+      if (currentCell.IsFree()) {
+        // remove a free cell from old column block, and add one to this
+        oldRowBlock.rowBlockFree--;
+        cell.rowBlockFree++;
+      }
     });
   }
 
@@ -286,8 +329,8 @@ public:
         currentCell.numberCandidates.Remove(number);
       }
     };
-    ForEachColumnBlockCell(ColumnBlock(cell), removeNumberCandidate);
-    ForEachRowBlockCell(RowBlock(cell), removeNumberCandidate);
+    ForEachColumnBlockCell(columnBlock, removeNumberCandidate);
+    ForEachRowBlockCell(rowBlock, removeNumberCandidate);
 
     return true;
   }

@@ -21,6 +21,7 @@ set(KAKURO2_SRC
 
 set(KAKURO_TEST_SRC
 	test.cpp
+	board_test.cpp
 	solver_test.cpp
 )
 
