@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 namespace kakuro {
@@ -42,9 +43,7 @@ struct Cell {
     return row - columnBlockRow;
   }
 
-  bool IsFree() const {
-    return !isBlock && number == 0;
-  }
+  bool IsFree() const { return !isBlock && number == 0; }
 };
 
 class Board {
@@ -132,7 +131,11 @@ public:
   }
 
   int IsTrivialCell(Cell& cell) {
-    assert(cell.IsFree());
+    assert(!cell.isBlock);
+
+    if (!cell.IsFree()) {
+      return 0;
+    }
 
     // Check if cell is trivial because neighbor constraints say there is only one possible number.
     if (cell.numberCandidates.Count() == 1) {
@@ -323,14 +326,22 @@ public:
     rowBlock.rowBlockNumbers.Add(number);
     columnBlock.columnBlockNumbers.Add(number);
 
-    auto removeNumberCandidate = [number, &undoContext](Cell& currentCell) {
+    auto removeNumberCandidate = [this, number, &undoContext](Cell& currentCell) {
       if (currentCell.numberCandidates.Has(number)) {
         undoContext.candidatesRemoved.emplace_back(currentCell.row, currentCell.column);
         currentCell.numberCandidates.Remove(number);
       }
+
+      int trivial = IsTrivialCell(currentCell);
+      if (trivial > 0) {
+        trivialCells_[&currentCell] = trivial;
+      }
     };
     ForEachColumnBlockCell(columnBlock, removeNumberCandidate);
     ForEachRowBlockCell(rowBlock, removeNumberCandidate);
+
+    // A filled cell cannot be trivial anymore
+    trivialCells_.erase(&cell);
 
     return true;
   }
@@ -338,14 +349,62 @@ public:
   void UndoFillNumber(const FillNumberUndoContext& undoContext) {
     Cell& cell = (*this)(undoContext.row, undoContext.column);
 
+    RowBlock(cell).rowBlockNumbers.Remove(cell.number);
+    ColumnBlock(cell).columnBlockNumbers.Remove(cell.number);
+
     for (auto& currentCellCoordinates : undoContext.candidatesRemoved) {
       Cell& currentCell = (*this)(currentCellCoordinates.first, currentCellCoordinates.second);
       currentCell.numberCandidates.Add(cell.number);
+
+      // Check if currentCell is no longer trivial because we undid the fill of cell.
+      if (IsTrivialCell(currentCell) == 0) {
+        trivialCells_.erase(&currentCell);
+      }
     }
 
-    RowBlock(cell).rowBlockNumbers.Remove(cell.number);
-    ColumnBlock(cell).columnBlockNumbers.Remove(cell.number);
     cell.number = 0;
+
+    // Check if cell is trivial now that we undid its fill.
+    int trivial = IsTrivialCell(cell);
+    if (trivial > 0) {
+      trivialCells_[&cell] = trivial;
+    }
+  }
+
+  // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
+  void SetRowBlockSum(Cell& cell, int sum) {
+    assert(cell.isBlock);
+    assert(sum >= 0);
+    assert(sum < 46);
+
+    cell.rowBlockSum = sum;
+
+    ForEachRowBlockCell(cell, [this](Cell& currentCell) {
+      int trivial = IsTrivialCell(currentCell);
+      if (trivial > 0) {
+        trivialCells_[&currentCell] = trivial;
+      } else {
+        trivialCells_.erase(&currentCell);
+      }
+    });
+  }
+
+  // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
+  void SetColumnBlockSum(Cell& cell, int sum) {
+    assert(cell.isBlock);
+    assert(sum >= 0);
+    assert(sum < 46);
+
+    cell.columnBlockSum = sum;
+
+    ForEachColumnBlockCell(cell, [this](Cell& currentCell) {
+      int trivial = IsTrivialCell(currentCell);
+      if (trivial > 0) {
+        trivialCells_[&currentCell] = trivial;
+      } else {
+        trivialCells_.erase(&currentCell);
+      }
+    });
   }
 
   void RenderHtml(std::ostream& output) {
@@ -405,11 +464,14 @@ public:
     output << "</html>" << std::endl;
   }
 
+  const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }
+
 private:
   int rows_;
   int columns_;
   int numbers_;
   std::vector<Cell> cells_;
+  std::unordered_map<Cell*, int> trivialCells_;
 };
 
 } // namespace kakuro

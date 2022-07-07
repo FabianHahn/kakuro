@@ -1,10 +1,14 @@
 #include "board.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <fstream>
 
 using namespace kakuro;
+using testing::Contains;
+using testing::Not;
+using testing::UnorderedElementsAre;
 
 // Test board:
 //   *********
@@ -21,8 +25,12 @@ TEST(BoardTest, Trivial) {
     board.MakeBlock(board(1, column));
   }
 
-  board(1, 7).rowBlockSum = 8;
-  board(1, 1).columnBlockSum = 1;
+  board.SetRowBlockSum(board(1, 7), 8);
+  board.SetColumnBlockSum(board(1, 1), 1);
+
+  ASSERT_THAT(
+      board.TrivialCells(),
+      UnorderedElementsAre(std::make_pair(&board(1, 8), 8), std::make_pair(&board(2, 1), 1)));
 
   Board::FillNumberUndoContext undo;
   ASSERT_EQ(board.IsTrivialCell(board(1, 8)), 8)
@@ -38,4 +46,5 @@ TEST(BoardTest, Trivial) {
   }
 
   ASSERT_EQ(board.IsTrivialCell(board(2, 8)), 9) << "cell should now be trivial";
+  ASSERT_THAT(board.TrivialCells(), UnorderedElementsAre(std::make_pair(&board(2, 8), 9)));
 }
