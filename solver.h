@@ -235,7 +235,7 @@ private:
   std::vector<Board::FillNumberUndoContext> solution_;
   int backtrackIndex_;
   int numFreeCells_;
-  int minimumDepth_;
+  int minimumDepth_; // counts the minimum depth since we last hit current maximum depth
   int maximumDepth_;
 };
 
