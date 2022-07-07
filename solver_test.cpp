@@ -7,9 +7,11 @@
 
 using namespace kakuro;
 
-TEST(SolverTest, SolveEmpty) {
+class SolverTest : public ::testing::TestWithParam<bool> {};
+
+TEST_P(SolverTest, SolveEmpty) {
   Board board{3, 4};
-  Solver solver;
+  Solver solver{GetParam()};
   bool result = solver.Solve(board);
   ASSERT_TRUE(result);
 
@@ -31,24 +33,24 @@ TEST(SolverTest, SolveEmpty) {
   }
 }
 
-TEST(SolverTest, SolveConstrained) {
+TEST_P(SolverTest, SolveConstrained) {
   Board board{3, 4};
-  board(1, 0).rowBlockSum = 17;
-  Solver solver;
+  board.SetRowBlockSum(board(1, 0), 17);
+  Solver solver{GetParam()};
   bool result = solver.Solve(board);
   ASSERT_TRUE(result);
 
   ASSERT_EQ(board(1, 1).number + board(1, 2).number + board(1, 3).number, 17);
 }
 
-TEST(SolverTest, SolveUnique) {
+TEST_P(SolverTest, SolveUnique) {
   Board board{3, 4};
-  board(1, 0).rowBlockSum = 7;
-  board(2, 0).rowBlockSum = 24;
-  board(0, 1).columnBlockSum = 10;
-  board(0, 2).columnBlockSum = 13;
-  board(0, 3).columnBlockSum = 8;
-  Solver solver;
+  board.SetRowBlockSum(board(1, 0), 7);
+  board.SetRowBlockSum(board(2, 0), 24);
+  board.SetColumnBlockSum(board(0, 1), 10);
+  board.SetColumnBlockSum(board(0, 2), 13);
+  board.SetColumnBlockSum(board(0, 3), 8);
+  Solver solver{GetParam()};
   bool result = solver.Solve(board);
   ASSERT_TRUE(result);
 
@@ -60,26 +62,28 @@ TEST(SolverTest, SolveUnique) {
   ASSERT_EQ(board(2, 3).number, 7);
 }
 
-TEST(SolverTest, SolveImpossible) {
+TEST_P(SolverTest, SolveImpossible) {
   Board board{3, 4};
-  board(1, 0).rowBlockSum = 45;
-  Solver solver;
+  board.SetRowBlockSum(board(1, 0), 45);
+  Solver solver{GetParam()};
   bool result = solver.Solve(board);
 
   ASSERT_FALSE(result);
 }
 
-TEST(SolverTest, SolveStar) {
+TEST_P(SolverTest, SolveStar) {
   Board board{4, 4};
   board.MakeBlock(board(1, 1));
   board.MakeBlock(board(1, 3));
   board.MakeBlock(board(3, 1));
   board.MakeBlock(board(3, 3));
-  board(1, 1).rowBlockSum = 1;
-  board(1, 3).columnBlockSum = 1;
+  board.SetRowBlockSum(board(1, 1), 1);
+  board.SetColumnBlockSum(board(1, 3), 1);
 
-  Solver solver;
+  Solver solver{GetParam()};
   bool result = solver.Solve(board);
 
   ASSERT_TRUE(result);
 }
+
+INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, true));

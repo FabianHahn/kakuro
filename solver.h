@@ -10,12 +10,25 @@ namespace kakuro {
 
 class Solver {
 public:
-  Solver(bool verboseLogs = true, bool verboseBacktracking = false, bool dumpBoards = false)
-      : verboseLogs_{verboseLogs},
+  Solver(
+      bool solveTrivial = true,
+      bool verboseLogs = true,
+      bool verboseBacktracking = false,
+      bool dumpBoards = false)
+      : solveTrivial_{solveTrivial},
+        verboseLogs_{verboseLogs},
         verboseBacktracking_{verboseBacktracking},
         dumpBoards_{dumpBoards} {}
 
   bool Solve(Board& board) {
+    if (solveTrivial_) {
+      // Solve any initially trivial cells.
+      int numTrivialCells = SolveTrivialCells(board);
+      if (verboseLogs_ && numTrivialCells > 0) {
+        std::cout << "Prefilled " << numTrivialCells << " trivial cells." << std::endl;
+      }
+    }
+
     // Need to solve free cells in a loop because there could be multiple separate regions.
     while (true) {
       backtrackIndex_ = 0;
@@ -38,11 +51,16 @@ public:
       solution_.clear();
       if (!SolveCells(board, /* depth */ 0)) {
         // If we cannot solve any individual subboard, then we cannot solve the board as a whole.
+        if (verboseLogs_) {
+          std::cout << "Failed to solved subboard of size " << cells_.size() << " after "
+                    << backtrackIndex_ << " backtracks." << std::endl;
+        }
+
         return false;
       }
 
       if (verboseLogs_) {
-        std::cout << "Solved subboard of size " << solution_.size() << " after " << backtrackIndex_
+        std::cout << "Solved subboard of size " << cells_.size() << " after " << backtrackIndex_
                   << " backtracks." << std::endl;
       }
     }
@@ -100,7 +118,7 @@ private:
 
   bool SolveCells(Board& board, int depth) {
     Cell& cell = *cells_[depth];
-    assert(cell.IsFree());
+    assert(!cell.isBlock);
 
     if (depth < minimumDepth_) {
       minimumDepth_ = depth;
@@ -121,6 +139,16 @@ private:
       DumpBoard(board, "maxDepth", maximumDepth_);
     }
 
+    if (!cell.IsFree()) {
+      if (depth == cells_.size() - 1) {
+        // We've filled all the cells successfully, this is a solution!
+        return true;
+      }
+
+      // We've solved this cell already, skip straight to the next.
+      return SolveCells(board, depth + 1);
+    }
+
     for (int number = 1; number <= 9; number++) {
       if (!cell.numberCandidates.Has(number)) {
         continue;
@@ -132,7 +160,13 @@ private:
       }
       solution_.emplace_back(undoContext);
 
-      if (depth == cells_.size() - 1) {
+      int numTrivialCells = 0;
+      if (solveTrivial_) {
+        // Solve any now trivial cells.
+        numTrivialCells = SolveTrivialCells(board);
+      }
+
+      if (depth + numTrivialCells == cells_.size() - 1) {
         // We've filled all the cells successfully, this is a solution!
         return true;
       }
@@ -163,6 +197,24 @@ private:
     return false;
   }
 
+  int SolveTrivialCells(Board& board) {
+    int numTrivialCells = 0;
+    // Trivial cells might change while we fill existing ones, so we make sure to keep checking if
+    // they are empty.
+    while (!board.TrivialCells().empty()) {
+      auto nextTrivial = board.TrivialCells().begin();
+      auto& nextTrivialCell = *nextTrivial->first;
+      int nextTrivialNumber = nextTrivial->second;
+
+      Board::FillNumberUndoContext undoContext;
+      bool filled = board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext);
+      assert(filled); // this is supposed to be trivial, so it must work
+      solution_.emplace_back(undoContext);
+      numTrivialCells++;
+    }
+    return numTrivialCells;
+  }
+
   void DumpBoard(Board& board, std::string prefix, int index) {
     if (!dumpBoards_) {
       return;
@@ -175,6 +227,7 @@ private:
   }
 
 private:
+  bool solveTrivial_;
   bool verboseLogs_;
   bool verboseBacktracking_;
   bool dumpBoards_;
