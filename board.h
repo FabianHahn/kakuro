@@ -279,6 +279,16 @@ public:
     return subboard;
   }
 
+  std::unordered_set<Cell*> FindSubboardBlocks(const std::vector<Cell*>& subboard) {
+    std::unordered_set<Cell*> blocks;
+    for (auto* cellPointer : subboard) {
+      auto& cell = *cellPointer;
+      blocks.insert(&RowBlock(cell));
+      blocks.insert(&ColumnBlock(cell));
+    }
+    return blocks;
+  }
+
   void MakeBlock(Cell& cell) {
     assert(cell.IsFree());
 

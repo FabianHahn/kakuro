@@ -17,12 +17,14 @@ set(KAKURO2_SRC
 	kakuro2.cpp
 	numbers.h
 	solver.h
+	sum_generator.h
 )
 
 set(KAKURO_TEST_SRC
 	test.cpp
 	board_test.cpp
 	solver_test.cpp
+	sum_generator_test.cpp
 )
 
 
