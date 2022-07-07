@@ -23,9 +23,9 @@ public:
   bool Solve(Board& board) {
     if (solveTrivial_) {
       // Solve any initially trivial cells.
-      int numTrivialCells = SolveTrivialCells(board);
-      if (verboseLogs_ && numTrivialCells > 0) {
-        std::cout << "Prefilled " << numTrivialCells << " trivial cells." << std::endl;
+      auto trivialSolution = SolveTrivialCells(board);
+      if (verboseLogs_ && !trivialSolution.empty()) {
+        std::cout << "Prefilled " << trivialSolution.size() << " trivial cells." << std::endl;
       }
     }
 
@@ -44,7 +44,8 @@ public:
                   << ") with " << subboard.size() << " free cells." << std::endl;
       }
 
-      if (!SolveCells(board, subboard)) {
+      auto solution = SolveCells(board, subboard);
+      if (solution.empty()) {
         // If we cannot solve any individual subboard, then we cannot solve the board as a whole.
         if (verboseLogs_) {
           std::cout << "Failed to solved subboard of size " << cells_.size() << " after "
@@ -61,13 +62,39 @@ public:
     }
   }
 
-  bool SolveCells(Board& board, std::vector<Cell*> cells) {
+  std::vector<Board::FillNumberUndoContext> SolveTrivialCells(Board& board) {
+    std::vector<Board::FillNumberUndoContext> solution;
+    int numTrivialCells = 0;
+    // Trivial cells might change while we fill existing ones, so we make sure to keep checking if
+    // they are empty.
+    while (!board.TrivialCells().empty()) {
+      auto nextTrivial = board.TrivialCells().begin();
+      auto& nextTrivialCell = *nextTrivial->first;
+      int nextTrivialNumber = nextTrivial->second;
+
+      Board::FillNumberUndoContext undoContext;
+      if (!board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext)) {
+        // There aren't supposed to be any conflicts for filling trivial cells, so there must be
+        // contradictory board constraints.
+        return solution;
+      }
+      solution.emplace_back(undoContext);
+      numTrivialCells++;
+    }
+    return solution;
+  }
+
+  std::vector<Board::FillNumberUndoContext> SolveCells(Board& board, std::vector<Cell*> cells) {
     backtrackIndex_ = 0;
     minimumDepth_ = 0;
     maximumDepth_ = 0;
     cells_ = cells;
     solution_.clear();
-    return SolveCells(board, /* depth */ 0);
+    if (!SolveCells(board, /* depth */ 0)) {
+      return {};
+    }
+
+    return std::move(solution_);
   }
 
 private:
@@ -109,6 +136,7 @@ private:
         continue;
       }
 
+      int initialSolutionSize = solution_.size();
       Board::FillNumberUndoContext undoContext;
       if (!board.FillNumber(cell, number, undoContext)) {
         continue;
@@ -118,7 +146,9 @@ private:
       int numTrivialCells = 0;
       if (solveTrivial_) {
         // Solve any now trivial cells.
-        numTrivialCells = SolveTrivialCells(board);
+        auto trivialSolution = SolveTrivialCells(board);
+        solution_.insert(solution_.end(), trivialSolution.begin(), trivialSolution.end());
+        numTrivialCells = trivialSolution.size();
       }
 
       if (depth + numTrivialCells == cells_.size() - 1) {
@@ -132,7 +162,7 @@ private:
       }
 
       // This wasn't actually a solution, so undo the partial one we have.
-      while (solution_.size() > depth) {
+      while (solution_.size() > initialSolutionSize) {
         auto undo = solution_.back();
         board.UndoFillNumber(undo);
         solution_.pop_back();
@@ -150,24 +180,6 @@ private:
     backtrackIndex_++;
 
     return false;
-  }
-
-  int SolveTrivialCells(Board& board) {
-    int numTrivialCells = 0;
-    // Trivial cells might change while we fill existing ones, so we make sure to keep checking if
-    // they are empty.
-    while (!board.TrivialCells().empty()) {
-      auto nextTrivial = board.TrivialCells().begin();
-      auto& nextTrivialCell = *nextTrivial->first;
-      int nextTrivialNumber = nextTrivial->second;
-
-      Board::FillNumberUndoContext undoContext;
-      bool filled = board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext);
-      assert(filled); // this is supposed to be trivial, so it must work
-      solution_.emplace_back(undoContext);
-      numTrivialCells++;
-    }
-    return numTrivialCells;
   }
 
   void DumpBoard(Board& board, std::string prefix, int index) {

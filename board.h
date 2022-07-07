@@ -336,13 +336,17 @@ public:
   };
 
   bool FillNumber(Cell& cell, int number, FillNumberUndoContext& undoContext) {
-    undoContext.row = cell.row;
-    undoContext.column = cell.column;
-    undoContext.candidatesRemoved.clear();
+    if (number < 1 || number > 9) {
+      return false;
+    }
 
     if (cell.isBlock || cell.number != 0) {
       return false;
     }
+
+    undoContext.row = cell.row;
+    undoContext.column = cell.column;
+    undoContext.candidatesRemoved.clear();
 
     Cell& rowBlock = RowBlock(cell);
     Cell& columnBlock = ColumnBlock(cell);
