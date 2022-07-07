@@ -6,6 +6,7 @@
 #include <functional>
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace kakuro {
@@ -185,7 +186,7 @@ public:
     }
   }
 
-  int ForEachFreeNeighborCell(Cell& cell, const std::function<bool(Cell&)>& callback) {
+  int ForEachNeighborCell(Cell& cell, const std::function<bool(Cell&)>& callback) {
     bool isLeftBorder = cell.column == 0;
     bool isTopBorder = cell.row == 0;
     bool isRightBorder = cell.column == Columns() - 1;
@@ -193,7 +194,7 @@ public:
 
     if (!isLeftBorder) {
       Cell& leftCell = (*this)(cell.row, cell.column - 1);
-      if (leftCell.IsFree()) {
+      if (!leftCell.isBlock) {
         if (!callback(leftCell)) {
           return false;
         }
@@ -202,7 +203,7 @@ public:
 
     if (!isTopBorder) {
       Cell& topCell = (*this)(cell.row - 1, cell.column);
-      if (topCell.IsFree()) {
+      if (!topCell.isBlock) {
         if (!callback(topCell)) {
           return false;
         }
@@ -211,7 +212,7 @@ public:
 
     if (!isRightBorder) {
       Cell& rightCell = (*this)(cell.row, cell.column + 1);
-      if (rightCell.IsFree()) {
+      if (!rightCell.isBlock) {
         if (!callback(rightCell)) {
           return false;
         }
@@ -220,7 +221,7 @@ public:
 
     if (!isBottomBorder) {
       Cell& bottomCell = (*this)(cell.row + 1, cell.column);
-      if (bottomCell.IsFree()) {
+      if (!bottomCell.isBlock) {
         if (!callback(bottomCell)) {
           return false;
         }
@@ -228,6 +229,54 @@ public:
     }
 
     return true;
+  }
+
+  std::unordered_set<Cell*> FindFreeCells() {
+    std::unordered_set<Cell*> freeCells;
+
+    for (int row = 0; row < Rows(); row++) {
+      for (int column = 0; column < Columns(); column++) {
+        Cell& cell = (*this)(row, column);
+        if (cell.IsFree()) {
+          freeCells.insert(&cell);
+        }
+      }
+    }
+
+    return freeCells;
+  }
+
+  // Finds a subboard around a given nonblock cell in BFS order.
+  std::vector<Cell*> FindSubboard(Cell& cell) {
+    assert(!cell.isBlock);
+
+    std::vector<Cell*> subboard{&cell};
+    std::unordered_set<Cell*> visitedCells{&cell};
+
+    // breadth first search
+    int lastNewCell = -1;
+    int newCells = 1;
+    while (newCells > 0) {
+      int firstNewCell = lastNewCell + 1;
+      lastNewCell += newCells;
+      newCells = 0;
+      assert(lastNewCell < subboard.size());
+
+      for (int i = firstNewCell; i <= lastNewCell; i++) {
+        Cell& newCell = *subboard[i];
+
+        ForEachNeighborCell(newCell, [&subboard, &visitedCells, &newCells](Cell& currentCell) {
+          if (visitedCells.find(&currentCell) == visitedCells.end()) {
+            subboard.emplace_back(&currentCell);
+            visitedCells.emplace(&currentCell);
+            newCells++;
+          }
+          return true;
+        });
+      }
+    }
+
+    return subboard;
   }
 
   void MakeBlock(Cell& cell) {
