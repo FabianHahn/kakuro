@@ -44,6 +44,9 @@ public:
 
   void Fill() { bitset_.set(); }
 
+  void Or(const Numbers& other) { bitset_ |= other.bitset_; }
+  void And(const Numbers& other) { bitset_ &= other.bitset_; }
+
 private:
   std::bitset<9> bitset_;
 };

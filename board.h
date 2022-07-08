@@ -1,6 +1,7 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include "combinations.h"
 #include "numbers.h"
 #include <cassert>
 #include <functional>
@@ -10,6 +11,10 @@
 #include <vector>
 
 namespace kakuro {
+
+namespace {
+const Combinations kCombinations;
+}
 
 struct Cell {
   int row;
@@ -139,7 +144,8 @@ public:
     }
 
     // Check if cell is trivial because neighbor constraints say there is only one possible number.
-    if (cell.numberCandidates.Count() == 1) {
+    // We also count zero as trivial because it is a trivial contradiction.
+    if (cell.numberCandidates.Count() <= 1) {
       return cell.numberCandidates.Sum();
     }
 
@@ -440,15 +446,39 @@ public:
     }
   }
 
+  struct SetSumUndoContext {
+    Cell* cell;
+    std::vector<class Numbers> numberCandidates;
+    bool isRow;
+  };
+
   // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  void SetRowBlockSum(Cell& cell, int sum) {
+  bool SetRowBlockSum(Cell& cell, int sum, SetSumUndoContext& undo) {
     assert(cell.isBlock);
+    assert(cell.rowBlockSum == 0);
     assert(sum >= 0);
     assert(sum < 46);
+
+    auto possibleCombinations = kCombinations[sum][cell.rowBlockSize];
+    if (possibleCombinations.empty()) {
+      return false;
+    }
+
+    undo.cell = &cell;
+    undo.numberCandidates.clear();
+    undo.isRow = true;
 
     cell.rowBlockSum = sum;
 
-    ForEachRowBlockCell(cell, [this](Cell& currentCell) {
+    class Numbers possibleNumbers;
+    for (auto combination : possibleCombinations) {
+      possibleNumbers.Or(combination);
+    }
+
+    ForEachRowBlockCell(cell, [this, &undo, &possibleNumbers](Cell& currentCell) {
+      undo.numberCandidates.push_back(currentCell.numberCandidates);
+      currentCell.numberCandidates.And(possibleNumbers);
+
       auto trivial = IsTrivialCell(currentCell);
       if (trivial) {
         trivialCells_[&currentCell] = *trivial;
@@ -456,17 +486,37 @@ public:
         trivialCells_.erase(&currentCell);
       }
     });
+
+    return true;
   }
 
   // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  void SetColumnBlockSum(Cell& cell, int sum) {
+  bool SetColumnBlockSum(Cell& cell, int sum, SetSumUndoContext& undo) {
     assert(cell.isBlock);
+    assert(cell.columnBlockSum == 0);
     assert(sum >= 0);
     assert(sum < 46);
 
+    auto possibleCombinations = kCombinations[sum][cell.columnBlockSize];
+    if (possibleCombinations.empty()) {
+      return false;
+    }
+
+    undo.cell = &cell;
+    undo.numberCandidates.clear();
+    undo.isRow = false;
+
     cell.columnBlockSum = sum;
 
-    ForEachColumnBlockCell(cell, [this](Cell& currentCell) {
+    class Numbers possibleNumbers;
+    for (auto combination : possibleCombinations) {
+      possibleNumbers.Or(combination);
+    }
+
+    ForEachColumnBlockCell(cell, [this, &undo, &possibleNumbers](Cell& currentCell) {
+      undo.numberCandidates.push_back(currentCell.numberCandidates);
+      currentCell.numberCandidates.And(possibleNumbers);
+
       auto trivial = IsTrivialCell(currentCell);
       if (trivial) {
         trivialCells_[&currentCell] = *trivial;
@@ -474,6 +524,38 @@ public:
         trivialCells_.erase(&currentCell);
       }
     });
+
+    return true;
+  }
+
+  void UndoSetSum(const SetSumUndoContext& undo) {
+    auto& cell = *undo.cell;
+    int i = 0;
+    if (undo.isRow) {
+      cell.rowBlockSum = 0;
+      ForEachRowBlockCell(cell, [this, &i, &undo](Cell& currentCell) {
+        currentCell.numberCandidates = undo.numberCandidates[i];
+        i++;
+
+        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
+        auto trivial = IsTrivialCell(currentCell);
+        if (!trivial) {
+          trivialCells_.erase(&currentCell);
+        }
+      });
+    } else {
+      cell.columnBlockSum = 0;
+      ForEachColumnBlockCell(cell, [this, &i, &undo](Cell& currentCell) {
+        currentCell.numberCandidates = undo.numberCandidates[i];
+        i++;
+
+        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
+        auto trivial = IsTrivialCell(currentCell);
+        if (!trivial) {
+          trivialCells_.erase(&currentCell);
+        }
+      });
+    }
   }
 
   void RenderHtml(std::ostream& output) {
@@ -484,7 +566,7 @@ public:
     output << "<title>Karuko</title>" << std::endl;
     output << "<style type=\"text/css\">" << std::endl;
     output << "table { border-collapse: collapse }" << std::endl;
-    output << "td { text-align: center; vertical-align: middle; color: white }" << std::endl;
+    output << "td { text-align: center; vertical-align: middle; color: black }" << std::endl;
     output << "td.cell { width: 48px; height: 48px; border: 1px solid black }" << std::endl;
     output << "</style>" << std::endl;
     output << "</head>" << std::endl;
@@ -509,18 +591,28 @@ public:
           output << "\t\t\t<table style=\"width: 100%; height: 100%;\">" << std::endl;
           output << "\t\t\t\t<tr>" << std::endl;
           output << "\t\t\t\t\t<td></td>" << std::endl;
-          output << "\t\t\t\t\t<td style=\"text-align:right;\">" << ifNonZero(cell.rowBlockSum)
-                 << "</td>" << std::endl;
+          output << "\t\t\t\t\t<td style=\"text-align:right;color:white\">"
+                 << ifNonZero(cell.rowBlockSum) << "</td>" << std::endl;
           output << "\t\t\t\t</tr>" << std::endl;
           output << "\t\t\t\t<tr>" << std::endl;
-          output << "\t\t\t\t\t<td style=\"text-align:left;\">" << ifNonZero(cell.columnBlockSum)
-                 << "</td>" << std::endl;
+          output << "\t\t\t\t\t<td style=\"text-align:left;color:white\">"
+                 << ifNonZero(cell.columnBlockSum) << "</td>" << std::endl;
           output << "\t\t\t\t\t<td></td>" << std::endl;
           output << "\t\t\t\t</tr>" << std::endl;
           output << "\t\t\t</table>" << std::endl;
         } else {
           output << "\t\t<td class=\"cell\">" << std::endl;
-          output << "\t\t\t" << cell.number << std::endl;
+          output << "\t\t\t";
+          if (cell.number > 0) {
+            output << cell.number;
+          } else {
+            for (int i = 1; i <= 9; i++) {
+              if (cell.numberCandidates.Has(i)) {
+                output << i << "?";
+              }
+            }
+          }
+          output << std::endl;
         }
 
         output << "\t\t</td>" << std::endl;

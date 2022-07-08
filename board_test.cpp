@@ -25,8 +25,9 @@ TEST(BoardTest, Trivial) {
     board.MakeBlock(board(1, column));
   }
 
-  board.SetRowBlockSum(board(1, 7), 8);
-  board.SetColumnBlockSum(board(1, 1), 1);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 7), 8, sumUndo);
+  board.SetColumnBlockSum(board(1, 1), 1, sumUndo);
 
   ASSERT_THAT(
       board.TrivialCells(),
@@ -55,7 +56,8 @@ TEST(BoardTest, InvalidTrivial) {
   Board::FillNumberUndoContext undo;
   board.FillNumber(board(1, 2), 1, undo);
   board.FillNumber(board(1, 3), 4, undo);
-  board.SetRowBlockSum(board(1, 0), 6);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 0), 6, sumUndo);
 
   ASSERT_EQ(board.IsTrivialCell(board(1, 1)), 1);
   ASSERT_THAT(

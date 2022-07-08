@@ -58,7 +58,7 @@ public:
       if (subboardSolution.empty()) {
         // If we cannot solve any individual subboard, then we cannot solve the board as a whole.
         if (verboseLogs_) {
-          std::cout << "Failed to solved subboard of size " << cells_.size() << " after "
+          std::cout << "Failed to solve subboard of size " << cells_.size() << " after "
                     << backtrackIndex_ << " backtracks." << std::endl;
         }
 

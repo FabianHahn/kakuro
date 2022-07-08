@@ -2,8 +2,8 @@
 #define SUM_GENERATOR_H
 
 #include "board.h"
-#include "solver.h"
 #include "combinations.h"
+#include "solver.h"
 #include <fstream>
 #include <random>
 #include <unordered_set>
@@ -98,46 +98,19 @@ private:
   }
 
   bool ChooseRowBlockSum(Board& board, Cell& cell) {
-    for (int i = 1; i <= 45; i++) {
-      if (combinations_[i][cell.rowBlockSize].empty()) {
+    for (int sum = 1; sum <= 45; sum++) {
+      Board::SetSumUndoContext undo;
+      if (!board.SetRowBlockSum(cell, sum, undo)) {
         continue;
       }
 
-      board.SetRowBlockSum(cell, i);
+      std::cout << "Attempting to set row block (" << cell.row << ", " << cell.column << ") to sum "
+                << sum << std::endl;
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
       if (!trivialSolution) {
         // If the block sum makes any trivial solution invalid, it must be invalid itself.
-        continue;
-      }
-
-      auto solution = solver_.SolveCells(board, cells_);
-
-      // Always undo the trivial solution
-      solver_.UndoSolution(board, *trivialSolution);
-
-      if (trivialSolution->size() + solution.size() == cells_.size()) {
-        // This sum works, so let's undo the solution and return.
-        solver_.UndoSolution(board, solution);
-        return true;
-      }
-    }
-
-    board.SetRowBlockSum(cell, 0);
-    return false;
-  }
-
-  bool ChooseColumnBlockSum(Board& board, Cell& cell) {
-    for (int i = 1; i <= 45; i++) {
-      if (combinations_[i][cell.columnBlockSize].empty()) {
-        continue;
-      }
-
-      board.SetColumnBlockSum(cell, i);
-
-      auto trivialSolution = solver_.SolveTrivialCells(board);
-      if (!trivialSolution) {
-        // If the block sum makes any trivial solution invalid, it must be invalid itself.
+        board.UndoSetSum(undo);
         continue;
       }
 
@@ -152,9 +125,45 @@ private:
         return true;
       }
       assert(solution.empty());
+
+      board.UndoSetSum(undo);
     }
 
-    board.SetColumnBlockSum(cell, 0);
+    return false;
+  }
+
+  bool ChooseColumnBlockSum(Board& board, Cell& cell) {
+    for (int sum = 1; sum <= 45; sum++) {
+      Board::SetSumUndoContext undo;
+      if (!board.SetColumnBlockSum(cell, sum, undo)) {
+        continue;
+      }
+
+      std::cout << "Attempting to set column block (" << cell.row << ", " << cell.column
+                << ") to sum " << sum << "." << std::endl;
+
+      auto trivialSolution = solver_.SolveTrivialCells(board);
+      if (!trivialSolution) {
+        // If the block sum makes any trivial solution invalid, it must be invalid itself.
+        board.UndoSetSum(undo);
+        continue;
+      }
+
+      auto solution = solver_.SolveCells(board, cells_);
+
+      // Always undo the trivial solution
+      solver_.UndoSolution(board, *trivialSolution);
+
+      if (trivialSolution->size() + solution.size() == cells_.size()) {
+        // This sum works, so let's undo the solution and return.
+        solver_.UndoSolution(board, solution);
+        return true;
+      }
+      assert(solution.empty());
+
+      board.UndoSetSum(undo);
+    }
+
     return false;
   }
 

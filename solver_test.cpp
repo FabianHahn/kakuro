@@ -39,7 +39,8 @@ TEST_P(SolverTest, SolveEmpty) {
 
 TEST_P(SolverTest, SolveConstrained) {
   Board board{3, 4};
-  board.SetRowBlockSum(board(1, 0), 17);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 0), 17, sumUndo);
   Solver solver{GetParam()};
   auto result = solver.Solve(board);
   ASSERT_THAT(result, Not(IsEmpty()));
@@ -49,11 +50,12 @@ TEST_P(SolverTest, SolveConstrained) {
 
 TEST_P(SolverTest, SolveUnique) {
   Board board{3, 4};
-  board.SetRowBlockSum(board(1, 0), 7);
-  board.SetRowBlockSum(board(2, 0), 24);
-  board.SetColumnBlockSum(board(0, 1), 10);
-  board.SetColumnBlockSum(board(0, 2), 13);
-  board.SetColumnBlockSum(board(0, 3), 8);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 0), 7, sumUndo);
+  board.SetRowBlockSum(board(2, 0), 24, sumUndo);
+  board.SetColumnBlockSum(board(0, 1), 10, sumUndo);
+  board.SetColumnBlockSum(board(0, 2), 13, sumUndo);
+  board.SetColumnBlockSum(board(0, 3), 8, sumUndo);
   Solver solver{GetParam()};
   auto result = solver.Solve(board);
   ASSERT_THAT(result, Not(IsEmpty()));
@@ -68,7 +70,12 @@ TEST_P(SolverTest, SolveUnique) {
 
 TEST_P(SolverTest, SolveImpossible) {
   Board board{3, 4};
-  board.SetRowBlockSum(board(1, 0), 45);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 0), 6, sumUndo);
+  board.SetRowBlockSum(board(2, 0), 6, sumUndo);
+  board.SetColumnBlockSum(board(0, 1), 5, sumUndo);
+  board.SetColumnBlockSum(board(0, 2), 5, sumUndo);
+  board.SetColumnBlockSum(board(0, 3), 5, sumUndo);
   Solver solver{GetParam()};
   auto result = solver.Solve(board);
   ASSERT_THAT(result, IsEmpty());
@@ -80,8 +87,9 @@ TEST_P(SolverTest, SolveStar) {
   board.MakeBlock(board(1, 3));
   board.MakeBlock(board(3, 1));
   board.MakeBlock(board(3, 3));
-  board.SetRowBlockSum(board(1, 1), 1);
-  board.SetColumnBlockSum(board(1, 3), 1);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 1), 1, sumUndo);
+  board.SetColumnBlockSum(board(1, 3), 1, sumUndo);
 
   Solver solver{GetParam()};
   auto result = solver.Solve(board);
@@ -110,7 +118,8 @@ TEST(SolverTest, SolveInvalidTrivial) {
   Board::FillNumberUndoContext undo;
   board.FillNumber(board(1, 2), 1, undo);
   board.FillNumber(board(1, 3), 4, undo);
-  board.SetRowBlockSum(board(1, 0), 6);
+  Board::SetSumUndoContext sumUndo;
+  board.SetRowBlockSum(board(1, 0), 6, sumUndo);
 
   Solver solver;
   auto trivial = solver.SolveTrivialCells(board);
