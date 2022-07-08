@@ -43,6 +43,7 @@ public:
         for (int i = 2; i < maxBlockDistance; i++) {
           if (blockDistribution_(random_)) {
             board.MakeBlock(cell);
+            break;
           }
         }
       }
