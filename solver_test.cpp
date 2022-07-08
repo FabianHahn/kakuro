@@ -1,20 +1,23 @@
 #include "solver.h"
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include "board.h"
 #include "board_generator.h"
 #include <fstream>
 
 using namespace kakuro;
+using testing::IsEmpty;
+using testing::Not;
 
 class SolverTest : public ::testing::TestWithParam<bool> {};
 
 TEST_P(SolverTest, SolveEmpty) {
   Board board{3, 4};
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-  ASSERT_TRUE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, Not(IsEmpty()));
 
   for (int row = 1; row <= 2; row++) {
     for (int col = 1; col <= 3; col++) {
@@ -38,8 +41,8 @@ TEST_P(SolverTest, SolveConstrained) {
   Board board{3, 4};
   board.SetRowBlockSum(board(1, 0), 17);
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-  ASSERT_TRUE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, Not(IsEmpty()));
 
   ASSERT_EQ(board(1, 1).number + board(1, 2).number + board(1, 3).number, 17);
 }
@@ -52,8 +55,8 @@ TEST_P(SolverTest, SolveUnique) {
   board.SetColumnBlockSum(board(0, 2), 13);
   board.SetColumnBlockSum(board(0, 3), 8);
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-  ASSERT_TRUE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, Not(IsEmpty()));
 
   ASSERT_EQ(board(1, 1).number, 2);
   ASSERT_EQ(board(1, 2).number, 4);
@@ -67,9 +70,8 @@ TEST_P(SolverTest, SolveImpossible) {
   Board board{3, 4};
   board.SetRowBlockSum(board(1, 0), 45);
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-
-  ASSERT_FALSE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, IsEmpty());
 }
 
 TEST_P(SolverTest, SolveStar) {
@@ -82,9 +84,8 @@ TEST_P(SolverTest, SolveStar) {
   board.SetColumnBlockSum(board(1, 3), 1);
 
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-
-  ASSERT_TRUE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, Not(IsEmpty()));
 }
 
 TEST_P(SolverTest, SolveGenerated) {
@@ -96,9 +97,8 @@ TEST_P(SolverTest, SolveGenerated) {
   auto board = boardGenerator.Generate(/* rows */ 10, /* columns */ 20);
 
   Solver solver{GetParam()};
-  bool result = solver.Solve(board);
-
-  ASSERT_TRUE(result);
+  auto result = solver.Solve(board);
+  ASSERT_THAT(result, Not(IsEmpty()));
 }
 
 INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, true));

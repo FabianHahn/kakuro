@@ -24,7 +24,7 @@ private:
   void AddNumber(Numbers numbers, int number) {
     int count = numbers.Count();
     int sum = numbers.Sum();
-    if (numbers.Has(number - 1)) {
+    if (number > 9) {
       combinations[sum][count].push_back(numbers);
     }
 

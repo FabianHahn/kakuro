@@ -3,6 +3,7 @@
 
 #include "board.h"
 #include "solver.h"
+#include "combinations.h"
 #include <fstream>
 #include <random>
 #include <unordered_set>
@@ -12,7 +13,7 @@ namespace kakuro {
 class SumGenerator {
 public:
   SumGenerator(bool verboseLogs = true)
-      : solver_{/* solveTrivial */ true}, verboseLogs_{verboseLogs} {}
+      : solver_{/* solveTrivial */ true, true, true, true}, verboseLogs_{verboseLogs} {}
 
   bool GenerateSums(Board& board) {
     // Solve any initially trivial cells.
@@ -45,10 +46,7 @@ public:
         }
         return false;
       }
-      // Undo the solution again.
-      for (auto undo : solution) {
-        board.UndoFillNumber(undo);
-      }
+      solver_.UndoSolution(board, solution);
 
       blocks_ = board.FindSubboardBlocks(cells_);
       if (verboseLogs_) {
@@ -95,21 +93,21 @@ private:
 
   bool ChooseRowBlockSum(Board& board, Cell& cell) {
     for (int i = 1; i <= 45; i++) {
+      if (combinations_[i][cell.rowBlockSize].empty()) {
+        continue;
+      }
+
       board.SetRowBlockSum(cell, i);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
       auto solution = solver_.SolveCells(board, cells_);
 
       // Always undo the trivial solution
-      for (auto undo : trivialSolution) {
-        board.UndoFillNumber(undo);
-      }
+      solver_.UndoSolution(board, trivialSolution);
 
       if (trivialSolution.size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
-        for (auto undo : solution) {
-          board.UndoFillNumber(undo);
-        }
+        solver_.UndoSolution(board, solution);
         return true;
       }
     }
@@ -120,21 +118,21 @@ private:
 
   bool ChooseColumnBlockSum(Board& board, Cell& cell) {
     for (int i = 1; i <= 45; i++) {
+      if (combinations_[i][cell.columnBlockSize].empty()) {
+        continue;
+      }
+
       board.SetColumnBlockSum(cell, i);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
       auto solution = solver_.SolveCells(board, cells_);
 
       // Always undo the trivial solution
-      for (auto undo : trivialSolution) {
-        board.UndoFillNumber(undo);
-      }
+      solver_.UndoSolution(board, trivialSolution);
 
       if (trivialSolution.size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
-        for (auto undo : solution) {
-          board.UndoFillNumber(undo);
-        }
+        solver_.UndoSolution(board, solution);
         return true;
       }
       assert(solution.empty());
@@ -144,6 +142,7 @@ private:
     return false;
   }
 
+  Combinations combinations_;
   Solver solver_;
   bool verboseLogs_;
   std::vector<Cell*> cells_;

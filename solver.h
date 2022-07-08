@@ -20,10 +20,13 @@ public:
         verboseBacktracking_{verboseBacktracking},
         dumpBoards_{dumpBoards} {}
 
-  bool Solve(Board& board) {
+  std::vector<Board::FillNumberUndoContext> Solve(Board& board) {
+    std::vector<Board::FillNumberUndoContext> solution;
+
     if (solveTrivial_) {
       // Solve any initially trivial cells.
       auto trivialSolution = SolveTrivialCells(board);
+      solution.insert(solution.end(), trivialSolution.begin(), trivialSolution.end());
       if (verboseLogs_ && !trivialSolution.empty()) {
         std::cout << "Prefilled " << trivialSolution.size() << " trivial cells." << std::endl;
       }
@@ -34,7 +37,7 @@ public:
       auto freeCells = board.FindFreeCells();
       if (freeCells.empty()) {
         // If there are no more free cells, we consider the board solved.
-        return true;
+        return solution;
       }
 
       auto& cell = **freeCells.begin();
@@ -44,21 +47,22 @@ public:
                   << ") with " << subboard.size() << " free cells." << std::endl;
       }
 
-      auto solution = SolveCells(board, subboard);
-      if (solution.empty()) {
+      auto subboardSolution = SolveCells(board, subboard);
+      if (subboardSolution.empty()) {
         // If we cannot solve any individual subboard, then we cannot solve the board as a whole.
         if (verboseLogs_) {
           std::cout << "Failed to solved subboard of size " << cells_.size() << " after "
                     << backtrackIndex_ << " backtracks." << std::endl;
         }
 
-        return false;
+        return {};
       }
 
       if (verboseLogs_) {
         std::cout << "Solved subboard of size " << cells_.size() << " after " << backtrackIndex_
                   << " backtracks." << std::endl;
       }
+      solution.insert(solution.end(), subboardSolution.begin(), subboardSolution.end());
     }
   }
 
@@ -95,6 +99,12 @@ public:
     }
 
     return std::move(solution_);
+  }
+
+  void UndoSolution(Board& board, const std::vector<Board::FillNumberUndoContext>& solution) {
+    for (auto undo : solution) {
+      board.UndoFillNumber(undo);
+    }
   }
 
 private:
