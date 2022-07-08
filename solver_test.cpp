@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "board.h"
+#include "board_generator.h"
 #include <fstream>
 
 using namespace kakuro;
@@ -79,6 +80,20 @@ TEST_P(SolverTest, SolveStar) {
   board.MakeBlock(board(3, 3));
   board.SetRowBlockSum(board(1, 1), 1);
   board.SetColumnBlockSum(board(1, 3), 1);
+
+  Solver solver{GetParam()};
+  bool result = solver.Solve(board);
+
+  ASSERT_TRUE(result);
+}
+
+TEST_P(SolverTest, SolveGenerated) {
+  std::random_device randomDevice;
+  std::mt19937 random;
+  random.seed(3);
+
+  BoardGenerator boardGenerator{random, /* blockProbability */ 0.3};
+  auto board = boardGenerator.Generate(/* rows */ 10, /* columns */ 20);
 
   Solver solver{GetParam()};
   bool result = solver.Solve(board);
