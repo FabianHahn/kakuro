@@ -3,6 +3,7 @@
 #include "critical_path_finder.h"
 #include "numbers.h"
 #include "solver.h"
+#include "sum_generator.h"
 #include <fstream>
 #include <iostream>
 
@@ -31,9 +32,17 @@ int main(int argc, char** argv) {
   BoardGenerator boardGenerator{random, blockProbability};
   auto board = boardGenerator.Generate(rows, columns);
 
+  /*
   Solver solver;
   if (!solver.Solve(board)) {
     std::cout << "Failed to solve board" << std::endl;
+    return EXIT_FAILURE;
+  }
+  */
+
+  SumGenerator sumGenerator;
+  if (!sumGenerator.GenerateSums(board)) {
+    std::cout << "Failed to generate sums" << std::endl;
     return EXIT_FAILURE;
   }
 
