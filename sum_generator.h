@@ -31,6 +31,11 @@ public:
       auto& cell = **freeCells.begin();
       cells_ = board.FindSubboard(cell);
 
+      if (verboseLogs_) {
+        std::cout << "Verifying solvability for subboard at cell (" << cell.row << ", "
+                  << cell.column << ") with " << cells_.size() << " free cells." << std::endl;
+      }
+
       // First check if the board is solvable
       auto solution = solver_.SolveCells(board, cells_);
       if (solution.empty()) {
@@ -67,11 +72,21 @@ private:
       if (cell.rowBlockSize > 0 && cell.rowBlockSum == 0) {
         bool chosen = ChooseRowBlockSum(board, cell);
         assert(chosen); // cannot fail because our precondition is that the subboard is solvable
+
+        if (verboseLogs_) {
+          std::cout << "Chose row block sum " << cell.rowBlockSum << " for cell (" << cell.row
+                    << ", " << cell.column << ")." << std::endl;
+        }
       }
 
       if (cell.columnBlockSize > 0 && cell.columnBlockSum == 0) {
         bool chosen = ChooseColumnBlockSum(board, cell);
         assert(chosen); // cannot fail because our precondition is that the subboard is solvable
+
+        if (verboseLogs_) {
+          std::cout << "Chose column block sum " << cell.columnBlockSum << " for cell (" << cell.row
+                    << ", " << cell.column << ")." << std::endl;
+        }
       }
 
       blocks_.erase(blocks_.begin());
