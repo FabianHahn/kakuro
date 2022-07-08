@@ -4,6 +4,7 @@
 #include "combinations.h"
 #include "numbers.h"
 #include <cassert>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <unordered_map>
@@ -623,6 +624,13 @@ public:
     output << "</table>" << std::endl;
     output << "</body>" << std::endl;
     output << "</html>" << std::endl;
+  }
+
+  void Dump(std::string prefix, int index) {
+    std::ofstream outputFile{prefix + std::to_string(index) + ".html"};
+    if (outputFile) {
+      RenderHtml(outputFile);
+    }
   }
 
   const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }

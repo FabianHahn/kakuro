@@ -105,7 +105,8 @@ private:
       }
 
       std::cout << "Attempting to set row block (" << cell.row << ", " << cell.column << ") to sum "
-                << sum << std::endl;
+                << sum << ": " << attempt_ << "." << std::endl;
+      board.Dump("choose", attempt_++);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
       if (!trivialSolution) {
@@ -140,7 +141,8 @@ private:
       }
 
       std::cout << "Attempting to set column block (" << cell.row << ", " << cell.column
-                << ") to sum " << sum << "." << std::endl;
+                << ") to sum " << sum << ": " << attempt_ << "." << std::endl;
+      board.Dump("choose", attempt_++);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
       if (!trivialSolution) {
@@ -172,6 +174,7 @@ private:
   bool verboseLogs_;
   std::vector<Cell*> cells_;
   std::unordered_set<Cell*> blocks_;
+  int attempt_;
 };
 
 } // namespace kakuro

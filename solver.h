@@ -3,9 +3,9 @@
 
 #include "board.h"
 #include <fstream>
+#include <optional>
 #include <random>
 #include <unordered_set>
-#include <optional>
 
 namespace kakuro {
 
@@ -136,7 +136,9 @@ private:
       maximumDepth_ = depth;
       minimumDepth_ = depth;
 
-      DumpBoard(board, "maxDepth", maximumDepth_);
+      if (dumpBoards_) {
+        board.Dump("maxDepth", maximumDepth_);
+      }
     }
 
     if (!cell.IsFree()) {
@@ -200,22 +202,13 @@ private:
                   << ") at depth " << depth << ", backtrack index " << backtrackIndex_ << "."
                   << std::endl;
       }
-      DumpBoard(board, "backtrack", backtrackIndex_);
+      if (dumpBoards_) {
+        board.Dump("backtrack", backtrackIndex_);
+      }
     }
     backtrackIndex_++;
 
     return false;
-  }
-
-  void DumpBoard(Board& board, std::string prefix, int index) {
-    if (!dumpBoards_) {
-      return;
-    }
-
-    std::ofstream outputFile{prefix + std::to_string(index) + ".html"};
-    if (outputFile) {
-      board.RenderHtml(outputFile);
-    }
   }
 
 private:
