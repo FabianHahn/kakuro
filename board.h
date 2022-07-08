@@ -131,11 +131,11 @@ public:
     return (*this)(cell.columnBlockRow, cell.columnBlockColumn);
   }
 
-  int IsTrivialCell(Cell& cell) {
+  std::optional<int> IsTrivialCell(Cell& cell) {
     assert(!cell.isBlock);
 
     if (!cell.IsFree()) {
-      return 0;
+      return std::nullopt;
     }
 
     // Check if cell is trivial because neighbor constraints say there is only one possible number.
@@ -145,17 +145,17 @@ public:
 
     // Check if cell is trivial because it is the only free number left in its row block.
     Cell& rowBlock = RowBlock(cell);
-    if (rowBlock.rowBlockFree == 1) {
+    if (rowBlock.rowBlockSum > 0 && rowBlock.rowBlockFree == 1) {
       return rowBlock.rowBlockSum - rowBlock.rowBlockNumbers.Sum();
     }
 
     // Check if cell is trivial because it is the only free number left in its column block.
     Cell& columnBlock = ColumnBlock(cell);
-    if (columnBlock.columnBlockFree == 1) {
+    if (columnBlock.columnBlockSum > 0 && columnBlock.columnBlockFree == 1) {
       return columnBlock.columnBlockSum - columnBlock.columnBlockNumbers.Sum();
     }
 
-    return 0;
+    return std::nullopt;
   }
 
   void ForEachRowBlockCell(Cell& cell, const std::function<void(Cell&)>& callback) {
@@ -387,7 +387,9 @@ public:
 
     cell.number = number;
     rowBlock.rowBlockNumbers.Add(number);
+    rowBlock.rowBlockFree--;
     columnBlock.columnBlockNumbers.Add(number);
+    columnBlock.columnBlockFree--;
 
     auto removeNumberCandidate = [this, number, &undoContext](Cell& currentCell) {
       if (currentCell.numberCandidates.Has(number)) {
@@ -395,9 +397,9 @@ public:
         currentCell.numberCandidates.Remove(number);
       }
 
-      int trivial = IsTrivialCell(currentCell);
-      if (trivial > 0) {
-        trivialCells_[&currentCell] = trivial;
+      auto trivial = IsTrivialCell(currentCell);
+      if (trivial) {
+        trivialCells_[&currentCell] = *trivial;
       }
     };
     ForEachColumnBlockCell(columnBlock, removeNumberCandidate);
@@ -412,15 +414,19 @@ public:
   void UndoFillNumber(const FillNumberUndoContext& undoContext) {
     Cell& cell = (*this)(undoContext.row, undoContext.column);
 
-    RowBlock(cell).rowBlockNumbers.Remove(cell.number);
-    ColumnBlock(cell).columnBlockNumbers.Remove(cell.number);
+    Cell& rowBlock = RowBlock(cell);
+    Cell& columnBlock = ColumnBlock(cell);
+    rowBlock.rowBlockNumbers.Remove(cell.number);
+    rowBlock.rowBlockFree++;
+    columnBlock.columnBlockNumbers.Remove(cell.number);
+    columnBlock.columnBlockFree++;
 
     for (auto& currentCellCoordinates : undoContext.candidatesRemoved) {
       Cell& currentCell = (*this)(currentCellCoordinates.first, currentCellCoordinates.second);
       currentCell.numberCandidates.Add(cell.number);
 
       // Check if currentCell is no longer trivial because we undid the fill of cell.
-      if (IsTrivialCell(currentCell) == 0) {
+      if (!IsTrivialCell(currentCell)) {
         trivialCells_.erase(&currentCell);
       }
     }
@@ -428,9 +434,9 @@ public:
     cell.number = 0;
 
     // Check if cell is trivial now that we undid its fill.
-    int trivial = IsTrivialCell(cell);
-    if (trivial > 0) {
-      trivialCells_[&cell] = trivial;
+    auto trivial = IsTrivialCell(cell);
+    if (trivial) {
+      trivialCells_[&cell] = *trivial;
     }
   }
 
@@ -443,9 +449,9 @@ public:
     cell.rowBlockSum = sum;
 
     ForEachRowBlockCell(cell, [this](Cell& currentCell) {
-      int trivial = IsTrivialCell(currentCell);
-      if (trivial > 0) {
-        trivialCells_[&currentCell] = trivial;
+      auto trivial = IsTrivialCell(currentCell);
+      if (trivial) {
+        trivialCells_[&currentCell] = *trivial;
       } else {
         trivialCells_.erase(&currentCell);
       }
@@ -461,9 +467,9 @@ public:
     cell.columnBlockSum = sum;
 
     ForEachColumnBlockCell(cell, [this](Cell& currentCell) {
-      int trivial = IsTrivialCell(currentCell);
-      if (trivial > 0) {
-        trivialCells_[&currentCell] = trivial;
+      auto trivial = IsTrivialCell(currentCell);
+      if (trivial) {
+        trivialCells_[&currentCell] = *trivial;
       } else {
         trivialCells_.erase(&currentCell);
       }

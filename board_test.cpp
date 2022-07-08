@@ -39,7 +39,7 @@ TEST(BoardTest, Trivial) {
 
   ASSERT_EQ(board.IsTrivialCell(board(2, 1)), 1)
       << "cell should be trivial because it is the only cell in its column block";
-  ASSERT_EQ(board.IsTrivialCell(board(2, 8)), 0) << "cell should not be trivial yet";
+  ASSERT_FALSE(board.IsTrivialCell(board(2, 8))) << "cell should not be trivial yet";
 
   for (int column = 1; column <= 7; column++) {
     board.FillNumber(board(2, column), column, undo);
@@ -47,4 +47,18 @@ TEST(BoardTest, Trivial) {
 
   ASSERT_EQ(board.IsTrivialCell(board(2, 8)), 9) << "cell should now be trivial";
   ASSERT_THAT(board.TrivialCells(), UnorderedElementsAre(std::make_pair(&board(2, 8), 9)));
+}
+
+TEST(BoardTest, InvalidTrivial) {
+  Board board{2, 4};
+
+  Board::FillNumberUndoContext undo;
+  board.FillNumber(board(1, 2), 1, undo);
+  board.FillNumber(board(1, 3), 4, undo);
+  board.SetRowBlockSum(board(1, 0), 6);
+
+  ASSERT_EQ(board.IsTrivialCell(board(1, 1)), 1);
+  ASSERT_THAT(
+      board.TrivialCells(),
+      UnorderedElementsAre(std::make_pair(&board(1, 1), 1)));
 }

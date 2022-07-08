@@ -5,6 +5,7 @@
 #include <fstream>
 #include <random>
 #include <unordered_set>
+#include <optional>
 
 namespace kakuro {
 
@@ -26,9 +27,15 @@ public:
     if (solveTrivial_) {
       // Solve any initially trivial cells.
       auto trivialSolution = SolveTrivialCells(board);
-      solution.insert(solution.end(), trivialSolution.begin(), trivialSolution.end());
-      if (verboseLogs_ && !trivialSolution.empty()) {
-        std::cout << "Prefilled " << trivialSolution.size() << " trivial cells." << std::endl;
+      if (!trivialSolution) {
+        if (verboseLogs_) {
+          std::cout << "Board starting with invalid trivial solution." << std::endl;
+        }
+        return {};
+      }
+      solution.insert(solution.end(), trivialSolution->begin(), trivialSolution->end());
+      if (verboseLogs_ && !trivialSolution->empty()) {
+        std::cout << "Prefilled " << trivialSolution->size() << " trivial cells." << std::endl;
       }
     }
 
@@ -66,7 +73,7 @@ public:
     }
   }
 
-  std::vector<Board::FillNumberUndoContext> SolveTrivialCells(Board& board) {
+  std::optional<std::vector<Board::FillNumberUndoContext>> SolveTrivialCells(Board& board) {
     std::vector<Board::FillNumberUndoContext> solution;
     int numTrivialCells = 0;
     // Trivial cells might change while we fill existing ones, so we make sure to keep checking if
@@ -80,7 +87,8 @@ public:
       if (!board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext)) {
         // There aren't supposed to be any conflicts for filling trivial cells, so there must be
         // contradictory board constraints.
-        return solution;
+        UndoSolution(board, solution);
+        return std::nullopt;
       }
       solution.emplace_back(undoContext);
       numTrivialCells++;
@@ -157,8 +165,15 @@ private:
       if (solveTrivial_) {
         // Solve any now trivial cells.
         auto trivialSolution = SolveTrivialCells(board);
-        solution_.insert(solution_.end(), trivialSolution.begin(), trivialSolution.end());
-        numTrivialCells = trivialSolution.size();
+        if (!trivialSolution) {
+          // Undo the filled number
+          board.UndoFillNumber(solution_.back());
+          solution_.pop_back();
+          // The filled number makes the trivial solution invalid, so it cannot be right.
+          continue;
+        }
+        solution_.insert(solution_.end(), trivialSolution->begin(), trivialSolution->end());
+        numTrivialCells = trivialSolution->size();
       }
 
       if (depth + numTrivialCells == cells_.size() - 1) {

@@ -18,8 +18,14 @@ public:
   bool GenerateSums(Board& board) {
     // Solve any initially trivial cells.
     auto trivialSolution = solver_.SolveTrivialCells(board);
-    if (verboseLogs_ && !trivialSolution.empty()) {
-      std::cout << "Prefilled " << trivialSolution.size() << " trivial cells." << std::endl;
+    if (!trivialSolution) {
+      if (verboseLogs_) {
+        std::cout << "Board starting with invalid trivial solution." << std::endl;
+      }
+      return false;
+    }
+    if (verboseLogs_ && !trivialSolution->empty()) {
+      std::cout << "Prefilled " << trivialSolution->size() << " trivial cells." << std::endl;
     }
 
     while (true) {
@@ -100,12 +106,17 @@ private:
       board.SetRowBlockSum(cell, i);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
+      if (!trivialSolution) {
+        // If the block sum makes any trivial solution invalid, it must be invalid itself.
+        continue;
+      }
+
       auto solution = solver_.SolveCells(board, cells_);
 
       // Always undo the trivial solution
-      solver_.UndoSolution(board, trivialSolution);
+      solver_.UndoSolution(board, *trivialSolution);
 
-      if (trivialSolution.size() + solution.size() == cells_.size()) {
+      if (trivialSolution->size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
         solver_.UndoSolution(board, solution);
         return true;
@@ -125,12 +136,17 @@ private:
       board.SetColumnBlockSum(cell, i);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
+      if (!trivialSolution) {
+        // If the block sum makes any trivial solution invalid, it must be invalid itself.
+        continue;
+      }
+
       auto solution = solver_.SolveCells(board, cells_);
 
       // Always undo the trivial solution
-      solver_.UndoSolution(board, trivialSolution);
+      solver_.UndoSolution(board, *trivialSolution);
 
-      if (trivialSolution.size() + solution.size() == cells_.size()) {
+      if (trivialSolution->size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
         solver_.UndoSolution(board, solution);
         return true;

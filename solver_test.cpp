@@ -102,3 +102,17 @@ TEST_P(SolverTest, SolveGenerated) {
 }
 
 INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, true));
+
+
+TEST(SolverTest, SolveInvalidTrivial) {
+  Board board{2, 4};
+
+  Board::FillNumberUndoContext undo;
+  board.FillNumber(board(1, 2), 1, undo);
+  board.FillNumber(board(1, 3), 4, undo);
+  board.SetRowBlockSum(board(1, 0), 6);
+
+  Solver solver;
+  auto trivial = solver.SolveTrivialCells(board);
+  ASSERT_FALSE(trivial);
+}
