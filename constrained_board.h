@@ -2,8 +2,13 @@
 #define CONSTRAINED_BOARD_H
 
 #include "board.h"
+#include "combinations.h"
 
 namespace kakuro {
+
+namespace {
+const Combinations kCombinations;
+}
 
 struct CellConstraints {
   Numbers numberCandidates;

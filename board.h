@@ -1,7 +1,6 @@
 #ifndef BOARD_H
 #define BOARD_H
 
-#include "combinations.h"
 #include <cassert>
 #include <fstream>
 #include <functional>
@@ -11,10 +10,6 @@
 #include <vector>
 
 namespace kakuro {
-
-namespace {
-const Combinations kCombinations;
-}
 
 struct Cell {
   int row;
