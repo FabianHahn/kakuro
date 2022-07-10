@@ -126,6 +126,7 @@ private:
   bool SolveCells(ConstrainedBoard& board, int depth) {
     Cell& cell = *cells_[depth];
     assert(!cell.isBlock);
+    auto& cellConstraints = board.Constraints(cell);
 
     if (depth < minimumDepth_) {
       minimumDepth_ = depth;
@@ -159,7 +160,7 @@ private:
     }
 
     for (int number = 1; number <= 9; number++) {
-      if (!cell.numberCandidates.Has(number)) {
+      if (!cellConstraints.numberCandidates.Has(number)) {
         continue;
       }
 

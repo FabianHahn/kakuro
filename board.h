@@ -2,7 +2,6 @@
 #define BOARD_H
 
 #include "combinations.h"
-#include "numbers.h"
 #include <cassert>
 #include <fstream>
 #include <functional>
@@ -21,20 +20,17 @@ struct Cell {
   int row;
   int column;
   int number;
-  Numbers numberCandidates;
   bool isBlock;
   int rowBlockRow;
   int rowBlockColumn;
   int rowBlockSize;
   int rowBlockFree;
   int rowBlockSum;
-  Numbers rowBlockNumbers;
   int columnBlockRow;
   int columnBlockColumn;
   int columnBlockSize;
   int columnBlockFree;
   int columnBlockSum;
-  Numbers columnBlockNumbers;
 
   int RowBlockDistance() const {
     if (isBlock) {
@@ -66,7 +62,6 @@ public:
         cell.row = row;
         cell.column = column;
         cell.number = 0;
-        cell.numberCandidates.Fill();
         cell.isBlock = false;
 
         if (column == 0) {
@@ -135,34 +130,6 @@ public:
     }
 
     return (*this)(cell.columnBlockRow, cell.columnBlockColumn);
-  }
-
-  std::optional<int> IsTrivialCell(Cell& cell) {
-    assert(!cell.isBlock);
-
-    if (!cell.IsFree()) {
-      return std::nullopt;
-    }
-
-    // Check if cell is trivial because neighbor constraints say there is only one possible number.
-    // We also count zero as trivial because it is a trivial contradiction.
-    if (cell.numberCandidates.Count() <= 1) {
-      return cell.numberCandidates.Sum();
-    }
-
-    // Check if cell is trivial because it is the only free number left in its row block.
-    Cell& rowBlock = RowBlock(cell);
-    if (rowBlock.rowBlockSum > 0 && rowBlock.rowBlockFree == 1) {
-      return rowBlock.rowBlockSum - rowBlock.rowBlockNumbers.Sum();
-    }
-
-    // Check if cell is trivial because it is the only free number left in its column block.
-    Cell& columnBlock = ColumnBlock(cell);
-    if (columnBlock.columnBlockSum > 0 && columnBlock.columnBlockFree == 1) {
-      return columnBlock.columnBlockSum - columnBlock.columnBlockNumbers.Sum();
-    }
-
-    return std::nullopt;
   }
 
   void ForEachRowBlockCell(Cell& cell, const std::function<void(Cell&)>& callback) {
@@ -346,219 +313,6 @@ public:
     });
   }
 
-  struct FillNumberUndoContext {
-    int row;
-    int column;
-    std::vector<std::pair<int, int>> candidatesRemoved;
-  };
-
-  bool FillNumber(Cell& cell, int number, FillNumberUndoContext& undoContext) {
-    if (number < 1 || number > 9) {
-      return false;
-    }
-
-    if (cell.isBlock || cell.number != 0) {
-      return false;
-    }
-
-    undoContext.row = cell.row;
-    undoContext.column = cell.column;
-    undoContext.candidatesRemoved.clear();
-
-    Cell& rowBlock = RowBlock(cell);
-    Cell& columnBlock = ColumnBlock(cell);
-
-    bool canBeNumber = cell.numberCandidates.Has(number);
-    bool rowBlockHasNumber = rowBlock.rowBlockNumbers.Has(number);
-    bool columnBlockHasNumber = columnBlock.columnBlockNumbers.Has(number);
-
-    if (!canBeNumber || rowBlockHasNumber || columnBlockHasNumber) {
-      return false;
-    }
-
-    if (rowBlock.rowBlockSum > 0) {
-      bool isLastRowBlockNumber = rowBlock.rowBlockNumbers.Count() + 1 == rowBlock.rowBlockSize;
-      if (isLastRowBlockNumber && rowBlock.rowBlockNumbers.Sum() + number != rowBlock.rowBlockSum) {
-        return false;
-      }
-    }
-
-    if (columnBlock.columnBlockSum > 0) {
-      bool isLastColumnBlockNumber =
-          columnBlock.columnBlockNumbers.Count() + 1 == columnBlock.columnBlockSize;
-      if (isLastColumnBlockNumber &&
-          columnBlock.columnBlockNumbers.Sum() + number != columnBlock.columnBlockSum) {
-        return false;
-      }
-    }
-
-    cell.number = number;
-    rowBlock.rowBlockNumbers.Add(number);
-    rowBlock.rowBlockFree--;
-    columnBlock.columnBlockNumbers.Add(number);
-    columnBlock.columnBlockFree--;
-
-    auto removeNumberCandidate = [this, number, &undoContext](Cell& currentCell) {
-      if (currentCell.numberCandidates.Has(number)) {
-        undoContext.candidatesRemoved.emplace_back(currentCell.row, currentCell.column);
-        currentCell.numberCandidates.Remove(number);
-      }
-
-      auto trivial = IsTrivialCell(currentCell);
-      if (trivial) {
-        trivialCells_[&currentCell] = *trivial;
-      }
-    };
-    ForEachColumnBlockCell(columnBlock, removeNumberCandidate);
-    ForEachRowBlockCell(rowBlock, removeNumberCandidate);
-
-    // A filled cell cannot be trivial anymore
-    trivialCells_.erase(&cell);
-
-    return true;
-  }
-
-  void UndoFillNumber(const FillNumberUndoContext& undoContext) {
-    Cell& cell = (*this)(undoContext.row, undoContext.column);
-
-    Cell& rowBlock = RowBlock(cell);
-    Cell& columnBlock = ColumnBlock(cell);
-    rowBlock.rowBlockNumbers.Remove(cell.number);
-    rowBlock.rowBlockFree++;
-    columnBlock.columnBlockNumbers.Remove(cell.number);
-    columnBlock.columnBlockFree++;
-
-    for (auto& currentCellCoordinates : undoContext.candidatesRemoved) {
-      Cell& currentCell = (*this)(currentCellCoordinates.first, currentCellCoordinates.second);
-      currentCell.numberCandidates.Add(cell.number);
-
-      // Check if currentCell is no longer trivial because we undid the fill of cell.
-      if (!IsTrivialCell(currentCell)) {
-        trivialCells_.erase(&currentCell);
-      }
-    }
-
-    cell.number = 0;
-
-    // Check if cell is trivial now that we undid its fill.
-    auto trivial = IsTrivialCell(cell);
-    if (trivial) {
-      trivialCells_[&cell] = *trivial;
-    }
-  }
-
-  struct SetSumUndoContext {
-    Cell* cell;
-    std::vector<class Numbers> numberCandidates;
-    bool isRow;
-  };
-
-  // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  bool SetRowBlockSum(Cell& cell, int sum, SetSumUndoContext& undo) {
-    assert(cell.isBlock);
-    assert(cell.rowBlockSum == 0);
-    assert(sum >= 0);
-    assert(sum < 46);
-
-    auto possibleCombinations = kCombinations[sum][cell.rowBlockSize];
-    if (possibleCombinations.empty()) {
-      return false;
-    }
-
-    undo.cell = &cell;
-    undo.numberCandidates.clear();
-    undo.isRow = true;
-
-    cell.rowBlockSum = sum;
-
-    class Numbers possibleNumbers;
-    for (auto combination : possibleCombinations) {
-      possibleNumbers.Or(combination);
-    }
-
-    ForEachRowBlockCell(cell, [this, &undo, &possibleNumbers](Cell& currentCell) {
-      undo.numberCandidates.push_back(currentCell.numberCandidates);
-      currentCell.numberCandidates.And(possibleNumbers);
-
-      auto trivial = IsTrivialCell(currentCell);
-      if (trivial) {
-        trivialCells_[&currentCell] = *trivial;
-      } else {
-        trivialCells_.erase(&currentCell);
-      }
-    });
-
-    return true;
-  }
-
-  // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  bool SetColumnBlockSum(Cell& cell, int sum, SetSumUndoContext& undo) {
-    assert(cell.isBlock);
-    assert(cell.columnBlockSum == 0);
-    assert(sum >= 0);
-    assert(sum < 46);
-
-    auto possibleCombinations = kCombinations[sum][cell.columnBlockSize];
-    if (possibleCombinations.empty()) {
-      return false;
-    }
-
-    undo.cell = &cell;
-    undo.numberCandidates.clear();
-    undo.isRow = false;
-
-    cell.columnBlockSum = sum;
-
-    class Numbers possibleNumbers;
-    for (auto combination : possibleCombinations) {
-      possibleNumbers.Or(combination);
-    }
-
-    ForEachColumnBlockCell(cell, [this, &undo, &possibleNumbers](Cell& currentCell) {
-      undo.numberCandidates.push_back(currentCell.numberCandidates);
-      currentCell.numberCandidates.And(possibleNumbers);
-
-      auto trivial = IsTrivialCell(currentCell);
-      if (trivial) {
-        trivialCells_[&currentCell] = *trivial;
-      } else {
-        trivialCells_.erase(&currentCell);
-      }
-    });
-
-    return true;
-  }
-
-  void UndoSetSum(const SetSumUndoContext& undo) {
-    auto& cell = *undo.cell;
-    int i = 0;
-    if (undo.isRow) {
-      cell.rowBlockSum = 0;
-      ForEachRowBlockCell(cell, [this, &i, &undo](Cell& currentCell) {
-        currentCell.numberCandidates = undo.numberCandidates[i];
-        i++;
-
-        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
-        auto trivial = IsTrivialCell(currentCell);
-        if (!trivial) {
-          trivialCells_.erase(&currentCell);
-        }
-      });
-    } else {
-      cell.columnBlockSum = 0;
-      ForEachColumnBlockCell(cell, [this, &i, &undo](Cell& currentCell) {
-        currentCell.numberCandidates = undo.numberCandidates[i];
-        i++;
-
-        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
-        auto trivial = IsTrivialCell(currentCell);
-        if (!trivial) {
-          trivialCells_.erase(&currentCell);
-        }
-      });
-    }
-  }
-
   void RenderHtml(std::ostream& output) {
     return RenderHtml(output, [](std::ostream& output, Cell& cell) { output << cell.number; });
   }
@@ -623,14 +377,11 @@ public:
     output << "</html>" << std::endl;
   }
 
-  const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }
-
 private:
   int rows_;
   int columns_;
   int numbers_;
   std::vector<Cell> cells_;
-  std::unordered_map<Cell*, int> trivialCells_;
 };
 
 } // namespace kakuro
