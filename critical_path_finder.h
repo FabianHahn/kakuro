@@ -5,15 +5,15 @@ namespace kakuro {
 
 class CriticalPathFinder {
 public:
-  CriticalPathFinder(Board& board)
+  CriticalPathFinder(const Board& board)
       : board_{board}, visited_(static_cast<std::size_t>(board.Rows() * board.Columns())) {}
 
-  bool IsCriticalPath(Cell& cell) {
+  bool IsCriticalPath(const Cell& cell) {
     if (cell.isBlock) {
       return false;
     }
 
-    Cell& topCell = board_(cell.row - 1, cell.column);
+    const Cell& topCell = board_(cell.row - 1, cell.column);
     if (!topCell.isBlock) {
       ClearMarked();
       Mark(cell);
@@ -23,7 +23,7 @@ public:
       }
     }
 
-    Cell& leftCell = board_(cell.row, cell.column - 1);
+    const Cell& leftCell = board_(cell.row, cell.column - 1);
     if (!leftCell.isBlock) {
       ClearMarked();
       Mark(cell);
@@ -34,7 +34,7 @@ public:
     }
 
     if (cell.row + 1 < board_.Rows()) {
-      Cell& bottomCell = board_(cell.row + 1, cell.column);
+      const Cell& bottomCell = board_(cell.row + 1, cell.column);
       if (!bottomCell.isBlock) {
         ClearMarked();
         Mark(cell);
@@ -46,7 +46,7 @@ public:
     }
 
     if (cell.column + 1 < board_.Columns()) {
-      Cell& rightCell = board_(cell.row, cell.column + 1);
+      const Cell& rightCell = board_(cell.row, cell.column + 1);
       if (!rightCell.isBlock) {
         ClearMarked();
         Mark(cell);
@@ -66,11 +66,13 @@ private:
     visited_.resize(board_.Rows() * board_.Columns(), false);
   }
 
-  void Mark(Cell& cell) { visited_[cell.row * board_.Columns() + cell.column] = true; }
+  void Mark(const Cell& cell) { visited_[cell.row * board_.Columns() + cell.column] = true; }
 
-  bool IsMarked(Cell& cell) const { return visited_[cell.row * board_.Columns() + cell.column]; }
+  bool IsMarked(const Cell& cell) const {
+    return visited_[cell.row * board_.Columns() + cell.column];
+  }
 
-  int CountReachableCells(Cell& cell) {
+  int CountReachableCells(const Cell& cell) {
     if (cell.isBlock || IsMarked(cell)) {
       return 0;
     }
@@ -91,7 +93,7 @@ private:
     return numReachableUnmarked;
   }
 
-  Board& board_;
+  const Board& board_;
   std::vector<bool> visited_;
 };
 

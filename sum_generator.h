@@ -71,7 +71,7 @@ private:
   // Precondition: subboard must be solvable
   void GenerateSubboardSums(ConstrainedBoard& board) {
     while (!blocks_.empty()) {
-      auto& cell = **blocks_.begin();
+      const auto& cell = **blocks_.begin();
 
       if (cell.rowBlockSize > 0 && cell.rowBlockSum == 0) {
         bool chosen = ChooseRowBlockSum(board, cell);
@@ -97,7 +97,7 @@ private:
     }
   }
 
-  bool ChooseRowBlockSum(ConstrainedBoard& board, Cell& cell) {
+  bool ChooseRowBlockSum(ConstrainedBoard& board, const Cell& cell) {
     for (int sum = 1; sum <= 45; sum++) {
       SetSumUndoContext undo;
       if (!board.SetRowBlockSum(cell, sum, undo)) {
@@ -133,7 +133,7 @@ private:
     return false;
   }
 
-  bool ChooseColumnBlockSum(ConstrainedBoard& board, Cell& cell) {
+  bool ChooseColumnBlockSum(ConstrainedBoard& board, const Cell& cell) {
     for (int sum = 1; sum <= 45; sum++) {
       SetSumUndoContext undo;
       if (!board.SetColumnBlockSum(cell, sum, undo)) {
@@ -172,8 +172,8 @@ private:
   Combinations combinations_;
   Solver solver_;
   bool verboseLogs_;
-  std::vector<Cell*> cells_;
-  std::unordered_set<Cell*> blocks_;
+  std::vector<const Cell*> cells_;
+  std::unordered_set<const Cell*> blocks_;
   int attempt_;
 };
 

@@ -17,7 +17,7 @@ public:
 
     for (int row = 1; row < rows; row++) {
       for (int column = 1; column < columns; column++) {
-        auto& cell = board(row, column);
+        const auto& cell = board(row, column);
 
         int rowBlockDistance = cell.RowBlockDistance();
         int columnBlockDistance = cell.ColumnBlockDistance();
@@ -61,7 +61,7 @@ public:
   }
 
 private:
-  void FillThinNeighbors(Board& board, Cell& cell) {
+  void FillThinNeighbors(Board& board, const Cell& cell) {
     if (cell.isBlock) {
       return;
     }

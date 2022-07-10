@@ -58,7 +58,7 @@ public:
         cells_{static_cast<std::size_t>(rows * columns)} {
     for (int row = 0; row < rows_; row++) {
       for (int column = 0; column < columns_; column++) {
-        auto& cell = (*this)(row, column);
+        auto& cell = MutableCell(row, column);
         cell.row = row;
         cell.column = column;
         cell.number = 0;
@@ -102,7 +102,7 @@ public:
 
   int Numbers() const { return numbers_; }
 
-  Cell& operator()(int row, int column) {
+  const Cell& operator()(int row, int column) const {
     assert(row >= 0);
     assert(row < rows_);
     assert(column >= 0);
@@ -110,13 +110,13 @@ public:
     return cells_[row * columns_ + column];
   }
 
-  Cell& operator[](int index) {
+  const Cell& operator[](int index) const {
     assert(index >= 0);
     assert(index < rows_ * columns_);
     return cells_[index];
   }
 
-  Cell& RowBlock(Cell& cell) {
+  const Cell& RowBlock(const Cell& cell) const {
     if (cell.isBlock) {
       return cell;
     }
@@ -124,7 +124,7 @@ public:
     return (*this)(cell.rowBlockRow, cell.rowBlockColumn);
   }
 
-  Cell& ColumnBlock(Cell& cell) {
+  const Cell& ColumnBlock(const Cell& cell) const {
     if (cell.isBlock) {
       return cell;
     }
@@ -132,11 +132,12 @@ public:
     return (*this)(cell.columnBlockRow, cell.columnBlockColumn);
   }
 
-  void ForEachRowBlockCell(Cell& cell, const std::function<void(Cell&)>& callback) {
+  void ForEachRowBlockCell(
+      const Cell& cell, const std::function<void(const Cell&)>& callback) const {
     assert(cell.isBlock);
 
     for (int column = cell.column + 1; column < columns_; column++) {
-      Cell& currentCell = (*this)(cell.row, column);
+      const Cell& currentCell = (*this)(cell.row, column);
 
       if (currentCell.isBlock) {
         break;
@@ -146,11 +147,12 @@ public:
     }
   }
 
-  void ForEachColumnBlockCell(Cell& cell, const std::function<void(Cell&)>& callback) {
+  void ForEachColumnBlockCell(
+      const Cell& cell, const std::function<void(const Cell&)>& callback) const {
     assert(cell.isBlock);
 
     for (int row = cell.row + 1; row < rows_; row++) {
-      Cell& currentCell = (*this)(row, cell.column);
+      const Cell& currentCell = (*this)(row, cell.column);
 
       if (currentCell.isBlock) {
         break;
@@ -160,14 +162,15 @@ public:
     }
   }
 
-  int ForEachNeighborCell(Cell& cell, const std::function<bool(Cell&)>& callback) {
+  int ForEachNeighborCell(
+      const Cell& cell, const std::function<bool(const Cell&)>& callback) const {
     bool isLeftBorder = cell.column == 0;
     bool isTopBorder = cell.row == 0;
     bool isRightBorder = cell.column == Columns() - 1;
     bool isBottomBorder = cell.row == Rows() - 1;
 
     if (!isLeftBorder) {
-      Cell& leftCell = (*this)(cell.row, cell.column - 1);
+      const Cell& leftCell = (*this)(cell.row, cell.column - 1);
       if (!leftCell.isBlock) {
         if (!callback(leftCell)) {
           return false;
@@ -176,7 +179,7 @@ public:
     }
 
     if (!isTopBorder) {
-      Cell& topCell = (*this)(cell.row - 1, cell.column);
+      const Cell& topCell = (*this)(cell.row - 1, cell.column);
       if (!topCell.isBlock) {
         if (!callback(topCell)) {
           return false;
@@ -185,7 +188,7 @@ public:
     }
 
     if (!isRightBorder) {
-      Cell& rightCell = (*this)(cell.row, cell.column + 1);
+      const Cell& rightCell = (*this)(cell.row, cell.column + 1);
       if (!rightCell.isBlock) {
         if (!callback(rightCell)) {
           return false;
@@ -194,7 +197,7 @@ public:
     }
 
     if (!isBottomBorder) {
-      Cell& bottomCell = (*this)(cell.row + 1, cell.column);
+      const Cell& bottomCell = (*this)(cell.row + 1, cell.column);
       if (!bottomCell.isBlock) {
         if (!callback(bottomCell)) {
           return false;
@@ -205,12 +208,12 @@ public:
     return true;
   }
 
-  std::unordered_set<Cell*> FindFreeCells() {
-    std::unordered_set<Cell*> freeCells;
+  std::unordered_set<const Cell*> FindFreeCells() const {
+    std::unordered_set<const Cell*> freeCells;
 
     for (int row = 0; row < Rows(); row++) {
       for (int column = 0; column < Columns(); column++) {
-        Cell& cell = (*this)(row, column);
+        const Cell& cell = (*this)(row, column);
         if (cell.IsFree()) {
           freeCells.insert(&cell);
         }
@@ -221,11 +224,11 @@ public:
   }
 
   // Finds a subboard around a given nonblock cell in BFS order.
-  std::vector<Cell*> FindSubboard(Cell& cell) {
+  std::vector<const Cell*> FindSubboard(const Cell& cell) const {
     assert(!cell.isBlock);
 
-    std::vector<Cell*> subboard{&cell};
-    std::unordered_set<Cell*> visitedCells{&cell};
+    std::vector<const Cell*> subboard{&cell};
+    std::unordered_set<const Cell*> visitedCells{&cell};
 
     // breadth first search
     int lastNewCell = -1;
@@ -237,24 +240,25 @@ public:
       assert(lastNewCell < subboard.size());
 
       for (int i = firstNewCell; i <= lastNewCell; i++) {
-        Cell& newCell = *subboard[i];
+        const Cell& newCell = *subboard[i];
 
-        ForEachNeighborCell(newCell, [&subboard, &visitedCells, &newCells](Cell& currentCell) {
-          if (visitedCells.find(&currentCell) == visitedCells.end()) {
-            subboard.emplace_back(&currentCell);
-            visitedCells.emplace(&currentCell);
-            newCells++;
-          }
-          return true;
-        });
+        ForEachNeighborCell(
+            newCell, [&subboard, &visitedCells, &newCells](const Cell& currentCell) {
+              if (visitedCells.find(&currentCell) == visitedCells.end()) {
+                subboard.emplace_back(&currentCell);
+                visitedCells.emplace(&currentCell);
+                newCells++;
+              }
+              return true;
+            });
       }
     }
 
     return subboard;
   }
 
-  std::unordered_set<Cell*> FindSubboardBlocks(const std::vector<Cell*>& subboard) {
-    std::unordered_set<Cell*> blocks;
+  std::unordered_set<const Cell*> FindSubboardBlocks(const std::vector<const Cell*>& subboard) {
+    std::unordered_set<const Cell*> blocks;
     for (auto* cellPointer : subboard) {
       auto& cell = *cellPointer;
       blocks.insert(&RowBlock(cell));
@@ -263,11 +267,12 @@ public:
     return blocks;
   }
 
-  void MakeBlock(Cell& cell) {
-    assert(cell.IsFree());
+  void MakeBlock(const Cell& freeCell) {
+    assert(freeCell.IsFree());
 
-    auto& oldRowBlock = RowBlock(cell);
-    auto& oldColumnBlock = ColumnBlock(cell);
+    auto& cell = MutableCell(freeCell);
+    auto& oldRowBlock = MutableRowBlock(cell);
+    auto& oldColumnBlock = MutableColumnBlock(cell);
     oldRowBlock.rowBlockSize = cell.RowBlockDistance() - 1;
     oldRowBlock.rowBlockFree--; // subtract one for this cell, more below
     oldColumnBlock.columnBlockSize = cell.ColumnBlockDistance() - 1;
@@ -281,7 +286,7 @@ public:
     cell.columnBlockSize = 0;
     cell.columnBlockFree = 0;
     cell.columnBlockSum = 0;
-    ForEachColumnBlockCell(cell, [&cell, &oldColumnBlock](Cell& currentCell) {
+    ForEachColumnBlockCellMutable(cell, [&cell, &oldColumnBlock](Cell& currentCell) {
       currentCell.columnBlockRow = cell.row;
       currentCell.columnBlockColumn = cell.column;
       cell.columnBlockSize++;
@@ -298,7 +303,7 @@ public:
     cell.rowBlockSize = 0;
     cell.rowBlockFree = 0;
     cell.rowBlockSum = 0;
-    ForEachRowBlockCell(cell, [&cell, &oldRowBlock](Cell& currentCell) {
+    ForEachRowBlockCellMutable(cell, [&cell, &oldRowBlock](Cell& currentCell) {
       currentCell.rowBlockRow = cell.row;
       currentCell.rowBlockColumn = cell.column;
       cell.rowBlockSize++;
@@ -313,12 +318,48 @@ public:
     });
   }
 
+  void SetNumber(const Cell& cell, int number) {
+    assert(!cell.isBlock);
+    assert(number >= 0);
+    assert(number <= 9);
+
+    bool wasFilled = cell.number > 0;
+    bool isFilled = number > 0;
+
+    MutableCell(cell).number = number;
+
+    Cell& rowBlock = MutableRowBlock(cell);
+    Cell& columnBlock = MutableColumnBlock(cell);
+    if (wasFilled && !isFilled) {
+      rowBlock.rowBlockFree++;
+      columnBlock.columnBlockFree++;
+    } else if (!wasFilled && isFilled) {
+      rowBlock.rowBlockFree--;
+      columnBlock.columnBlockFree--;
+    }
+  }
+
+  void SetRowBlockSum(const Cell& cell, int sum) {
+    assert(cell.isBlock);
+    assert(sum >= 0);
+    assert(sum <= 45);
+    MutableCell(cell).rowBlockSum = sum;
+  }
+
+  void SetColumnBlockSum(const Cell& cell, int sum) {
+    assert(cell.isBlock);
+    assert(sum >= 0);
+    assert(sum <= 45);
+    MutableCell(cell).columnBlockSum = sum;
+  }
+
   void RenderHtml(std::ostream& output) {
-    return RenderHtml(output, [](std::ostream& output, Cell& cell) { output << cell.number; });
+    return RenderHtml(
+        output, [](std::ostream& output, const Cell& cell) { output << cell.number; });
   }
 
   void RenderHtml(
-      std::ostream& output, const std::function<void(std::ostream&, Cell&)>& cellPrinter) {
+      std::ostream& output, const std::function<void(std::ostream&, const Cell&)>& cellPrinter) {
     output << "<!doctype html>" << std::endl;
     output << "<html>" << std::endl;
     output << "<head>" << std::endl;
@@ -378,6 +419,48 @@ public:
   }
 
 private:
+  Cell& MutableCell(const Cell& cell) { return const_cast<Cell&>(cell); }
+
+  Cell& MutableCell(int row, int column) {
+    assert(row >= 0);
+    assert(row < rows_);
+    assert(column >= 0);
+    assert(column < columns_);
+    return cells_[row * columns_ + column];
+  }
+
+  Cell& MutableCell(int index) {
+    assert(index >= 0);
+    assert(index < rows_ * columns_);
+    return cells_[index];
+  }
+
+  Cell& MutableRowBlock(const Cell& cell) {
+    if (cell.isBlock) {
+      return MutableCell(cell);
+    }
+
+    return MutableCell(cell.rowBlockRow, cell.rowBlockColumn);
+  }
+
+  Cell& MutableColumnBlock(const Cell& cell) {
+    if (cell.isBlock) {
+      return MutableCell(cell);
+    }
+
+    return MutableCell(cell.columnBlockRow, cell.columnBlockColumn);
+  }
+
+  void ForEachRowBlockCellMutable(const Cell& cell, const std::function<void(Cell&)>& callback) {
+    ForEachRowBlockCell(
+        cell, [this, &callback](const Cell& currentCell) { callback(MutableCell(currentCell)); });
+  }
+
+  void ForEachColumnBlockCellMutable(const Cell& cell, const std::function<void(Cell&)>& callback) {
+    ForEachColumnBlockCell(
+        cell, [this, &callback](const Cell& currentCell) { callback(MutableCell(currentCell)); });
+  }
+
   int rows_;
   int columns_;
   int numbers_;

@@ -54,7 +54,7 @@ public:
         return solution;
       }
 
-      auto& cell = **freeCells.begin();
+      const auto& cell = **freeCells.begin();
       auto subboard = board.UnderlyingBoard().FindSubboard(cell);
       if (verboseLogs_) {
         std::cout << "Attempting to solve subboard at cell (" << cell.row << ", " << cell.column
@@ -103,7 +103,8 @@ public:
     return solution;
   }
 
-  std::vector<FillNumberUndoContext> SolveCells(ConstrainedBoard& board, std::vector<Cell*> cells) {
+  std::vector<FillNumberUndoContext> SolveCells(
+      ConstrainedBoard& board, std::vector<const Cell*> cells) {
     backtrackIndex_ = 0;
     minimumDepth_ = 0;
     maximumDepth_ = 0;
@@ -124,7 +125,7 @@ public:
 
 private:
   bool SolveCells(ConstrainedBoard& board, int depth) {
-    Cell& cell = *cells_[depth];
+    const Cell& cell = *cells_[depth];
     assert(!cell.isBlock);
     auto& cellConstraints = board.Constraints(cell);
 
@@ -224,7 +225,7 @@ private:
   bool verboseLogs_;
   bool verboseBacktracking_;
   bool dumpBoards_;
-  std::vector<Cell*> cells_;
+  std::vector<const Cell*> cells_;
   std::vector<FillNumberUndoContext> solution_;
   int backtrackIndex_;
   int minimumDepth_; // counts the minimum depth since we last hit current maximum depth
