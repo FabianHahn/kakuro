@@ -41,7 +41,9 @@ public:
     // partially filled board.
   }
 
-  Board& GetBoard() { return board_; }
+  Board& UnderlyingBoard() { return board_; }
+
+  const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }
 
   CellConstraints& Constraints(Cell& cell) {
     return cellConstraints_[cell.row * board_.Columns() + cell.column];
@@ -286,7 +288,22 @@ public:
     }
   }
 
-  const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }
+  void Dump(std::string prefix, int index) {
+    std::ofstream outputFile{prefix + std::to_string(index) + ".html"};
+    if (outputFile) {
+      board_.RenderHtml(outputFile, [this](std::ostream& output, Cell& cell) {
+        if (cell.number > 0) {
+          output << cell.number;
+        } else {
+          for (int i = 1; i <= 9; i++) {
+            if (Constraints(cell).numberCandidates.Has(i)) {
+              output << i << "?";
+            }
+          }
+        }
+      });
+    }
+  }
 
 private:
   Board& board_;

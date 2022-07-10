@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
   std::cout << "Generating board..." << std::endl;
   BoardGenerator boardGenerator{random, blockProbability};
   auto board = boardGenerator.Generate(rows, columns);
+  ConstrainedBoard constrainedBoard{board};
 
   /*
   Solver solver;
@@ -41,7 +42,7 @@ int main(int argc, char** argv) {
   */
 
   SumGenerator sumGenerator;
-  if (!sumGenerator.GenerateSums(board)) {
+  if (!sumGenerator.GenerateSums(constrainedBoard)) {
     std::cout << "Failed to generate sums" << std::endl;
     return EXIT_FAILURE;
   }

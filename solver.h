@@ -2,6 +2,7 @@
 #define SOLVER_H
 
 #include "board.h"
+#include "constrained_board.h"
 #include <fstream>
 #include <optional>
 #include <random>
@@ -21,8 +22,14 @@ public:
         verboseBacktracking_{verboseBacktracking},
         dumpBoards_{dumpBoards} {}
 
-  std::vector<Board::FillNumberUndoContext> Solve(Board& board) {
-    std::vector<Board::FillNumberUndoContext> solution;
+  bool Solve(Board& board) {
+    ConstrainedBoard constrainedBoard{board};
+    auto solution = Solve(constrainedBoard);
+    return !solution.empty();
+  }
+
+  std::vector<FillNumberUndoContext> Solve(ConstrainedBoard& board) {
+    std::vector<FillNumberUndoContext> solution;
 
     if (solveTrivial_) {
       // Solve any initially trivial cells.
@@ -41,14 +48,14 @@ public:
 
     // Need to solve free cells in a loop because there could be multiple separate regions.
     while (true) {
-      auto freeCells = board.FindFreeCells();
+      auto freeCells = board.UnderlyingBoard().FindFreeCells();
       if (freeCells.empty()) {
         // If there are no more free cells, we consider the board solved.
         return solution;
       }
 
       auto& cell = **freeCells.begin();
-      auto subboard = board.FindSubboard(cell);
+      auto subboard = board.UnderlyingBoard().FindSubboard(cell);
       if (verboseLogs_) {
         std::cout << "Attempting to solve subboard at cell (" << cell.row << ", " << cell.column
                   << ") with " << subboard.size() << " free cells." << std::endl;
@@ -73,8 +80,8 @@ public:
     }
   }
 
-  std::optional<std::vector<Board::FillNumberUndoContext>> SolveTrivialCells(Board& board) {
-    std::vector<Board::FillNumberUndoContext> solution;
+  std::optional<std::vector<FillNumberUndoContext>> SolveTrivialCells(ConstrainedBoard& board) {
+    std::vector<FillNumberUndoContext> solution;
     int numTrivialCells = 0;
     // Trivial cells might change while we fill existing ones, so we make sure to keep checking if
     // they are empty.
@@ -83,7 +90,7 @@ public:
       auto& nextTrivialCell = *nextTrivial->first;
       int nextTrivialNumber = nextTrivial->second;
 
-      Board::FillNumberUndoContext undoContext;
+      FillNumberUndoContext undoContext;
       if (!board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext)) {
         // There aren't supposed to be any conflicts for filling trivial cells, so there must be
         // contradictory board constraints.
@@ -96,7 +103,7 @@ public:
     return solution;
   }
 
-  std::vector<Board::FillNumberUndoContext> SolveCells(Board& board, std::vector<Cell*> cells) {
+  std::vector<FillNumberUndoContext> SolveCells(ConstrainedBoard& board, std::vector<Cell*> cells) {
     backtrackIndex_ = 0;
     minimumDepth_ = 0;
     maximumDepth_ = 0;
@@ -109,14 +116,14 @@ public:
     return std::move(solution_);
   }
 
-  void UndoSolution(Board& board, const std::vector<Board::FillNumberUndoContext>& solution) {
+  void UndoSolution(ConstrainedBoard& board, const std::vector<FillNumberUndoContext>& solution) {
     for (auto undo : solution) {
       board.UndoFillNumber(undo);
     }
   }
 
 private:
-  bool SolveCells(Board& board, int depth) {
+  bool SolveCells(ConstrainedBoard& board, int depth) {
     Cell& cell = *cells_[depth];
     assert(!cell.isBlock);
 
@@ -157,7 +164,7 @@ private:
       }
 
       int initialSolutionSize = solution_.size();
-      Board::FillNumberUndoContext undoContext;
+      FillNumberUndoContext undoContext;
       if (!board.FillNumber(cell, number, undoContext)) {
         continue;
       }
@@ -217,7 +224,7 @@ private:
   bool verboseBacktracking_;
   bool dumpBoards_;
   std::vector<Cell*> cells_;
-  std::vector<Board::FillNumberUndoContext> solution_;
+  std::vector<FillNumberUndoContext> solution_;
   int backtrackIndex_;
   int minimumDepth_; // counts the minimum depth since we last hit current maximum depth
   int maximumDepth_;

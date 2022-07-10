@@ -15,7 +15,7 @@ public:
   SumGenerator(bool verboseLogs = true)
       : solver_{/* solveTrivial */ true, true, true, true}, verboseLogs_{verboseLogs} {}
 
-  bool GenerateSums(Board& board) {
+  bool GenerateSums(ConstrainedBoard& board) {
     // Solve any initially trivial cells.
     auto trivialSolution = solver_.SolveTrivialCells(board);
     if (!trivialSolution) {
@@ -29,14 +29,14 @@ public:
     }
 
     while (true) {
-      auto freeCells = board.FindFreeCells();
+      auto freeCells = board.UnderlyingBoard().FindFreeCells();
       if (freeCells.empty()) {
         // If there are no more free cells, we consider the board solved.
         return true;
       }
 
       auto& cell = **freeCells.begin();
-      cells_ = board.FindSubboard(cell);
+      cells_ = board.UnderlyingBoard().FindSubboard(cell);
 
       if (verboseLogs_) {
         std::cout << "Verifying solvability for subboard at cell (" << cell.row << ", "
@@ -54,7 +54,7 @@ public:
       }
       solver_.UndoSolution(board, solution);
 
-      blocks_ = board.FindSubboardBlocks(cells_);
+      blocks_ = board.UnderlyingBoard().FindSubboardBlocks(cells_);
       if (verboseLogs_) {
         std::cout << "Generating sums for subboard at cell (" << cell.row << ", " << cell.column
                   << ") with " << cells_.size() << " free cells and " << blocks_.size()
@@ -69,7 +69,7 @@ public:
 
 private:
   // Precondition: subboard must be solvable
-  void GenerateSubboardSums(Board& board) {
+  void GenerateSubboardSums(ConstrainedBoard& board) {
     while (!blocks_.empty()) {
       auto& cell = **blocks_.begin();
 
@@ -97,9 +97,9 @@ private:
     }
   }
 
-  bool ChooseRowBlockSum(Board& board, Cell& cell) {
+  bool ChooseRowBlockSum(ConstrainedBoard& board, Cell& cell) {
     for (int sum = 1; sum <= 45; sum++) {
-      Board::SetSumUndoContext undo;
+      SetSumUndoContext undo;
       if (!board.SetRowBlockSum(cell, sum, undo)) {
         continue;
       }
@@ -133,9 +133,9 @@ private:
     return false;
   }
 
-  bool ChooseColumnBlockSum(Board& board, Cell& cell) {
+  bool ChooseColumnBlockSum(ConstrainedBoard& board, Cell& cell) {
     for (int sum = 1; sum <= 45; sum++) {
-      Board::SetSumUndoContext undo;
+      SetSumUndoContext undo;
       if (!board.SetColumnBlockSum(cell, sum, undo)) {
         continue;
       }

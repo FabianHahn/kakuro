@@ -16,8 +16,8 @@ class SolverTest : public ::testing::TestWithParam<bool> {};
 TEST_P(SolverTest, SolveEmpty) {
   Board board{3, 4};
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
-  ASSERT_THAT(result, Not(IsEmpty()));
+  bool solved = solver.Solve(board);
+  ASSERT_TRUE(solved);
 
   for (int row = 1; row <= 2; row++) {
     for (int col = 1; col <= 3; col++) {
@@ -39,10 +39,11 @@ TEST_P(SolverTest, SolveEmpty) {
 
 TEST_P(SolverTest, SolveConstrained) {
   Board board{3, 4};
-  Board::SetSumUndoContext sumUndo;
-  board.SetRowBlockSum(board(1, 0), 17, sumUndo);
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetRowBlockSum(board(1, 0), 17, sumUndo);
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
+  auto result = solver.Solve(constrainedBoard);
   ASSERT_THAT(result, Not(IsEmpty()));
 
   ASSERT_EQ(board(1, 1).number + board(1, 2).number + board(1, 3).number, 17);
@@ -50,14 +51,15 @@ TEST_P(SolverTest, SolveConstrained) {
 
 TEST_P(SolverTest, SolveUnique) {
   Board board{3, 4};
-  Board::SetSumUndoContext sumUndo;
-  board.SetRowBlockSum(board(1, 0), 7, sumUndo);
-  board.SetRowBlockSum(board(2, 0), 24, sumUndo);
-  board.SetColumnBlockSum(board(0, 1), 10, sumUndo);
-  board.SetColumnBlockSum(board(0, 2), 13, sumUndo);
-  board.SetColumnBlockSum(board(0, 3), 8, sumUndo);
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetRowBlockSum(board(1, 0), 7, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(2, 0), 24, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 1), 10, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 2), 13, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 3), 8, sumUndo);
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
+  auto result = solver.Solve(constrainedBoard);
   ASSERT_THAT(result, Not(IsEmpty()));
 
   ASSERT_EQ(board(1, 1).number, 2);
@@ -70,14 +72,15 @@ TEST_P(SolverTest, SolveUnique) {
 
 TEST_P(SolverTest, SolveImpossible) {
   Board board{3, 4};
-  Board::SetSumUndoContext sumUndo;
-  board.SetRowBlockSum(board(1, 0), 6, sumUndo);
-  board.SetRowBlockSum(board(2, 0), 6, sumUndo);
-  board.SetColumnBlockSum(board(0, 1), 5, sumUndo);
-  board.SetColumnBlockSum(board(0, 2), 5, sumUndo);
-  board.SetColumnBlockSum(board(0, 3), 5, sumUndo);
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetRowBlockSum(board(1, 0), 6, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(2, 0), 6, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 1), 5, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 2), 5, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 3), 5, sumUndo);
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
+  auto result = solver.Solve(constrainedBoard);
   ASSERT_THAT(result, IsEmpty());
 }
 
@@ -87,12 +90,13 @@ TEST_P(SolverTest, SolveStar) {
   board.MakeBlock(board(1, 3));
   board.MakeBlock(board(3, 1));
   board.MakeBlock(board(3, 3));
-  Board::SetSumUndoContext sumUndo;
-  board.SetRowBlockSum(board(1, 1), 1, sumUndo);
-  board.SetColumnBlockSum(board(1, 3), 1, sumUndo);
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetRowBlockSum(board(1, 1), 1, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(1, 3), 1, sumUndo);
 
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
+  auto result = solver.Solve(constrainedBoard);
   ASSERT_THAT(result, Not(IsEmpty()));
 }
 
@@ -105,8 +109,8 @@ TEST_P(SolverTest, SolveGenerated) {
   auto board = boardGenerator.Generate(/* rows */ 10, /* columns */ 20);
 
   Solver solver{GetParam()};
-  auto result = solver.Solve(board);
-  ASSERT_THAT(result, Not(IsEmpty()));
+  bool solved = solver.Solve(board);
+  ASSERT_TRUE(solved);
 }
 
 INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, true));
@@ -114,14 +118,14 @@ INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, 
 
 TEST(SolverTest, SolveInvalidTrivial) {
   Board board{2, 4};
-
-  Board::FillNumberUndoContext undo;
-  board.FillNumber(board(1, 2), 1, undo);
-  board.FillNumber(board(1, 3), 4, undo);
-  Board::SetSumUndoContext sumUndo;
-  board.SetRowBlockSum(board(1, 0), 6, sumUndo);
+  ConstrainedBoard constrainedBoard{board};
+  FillNumberUndoContext undo;
+  constrainedBoard.FillNumber(board(1, 2), 1, undo);
+  constrainedBoard.FillNumber(board(1, 3), 4, undo);
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetRowBlockSum(board(1, 0), 6, sumUndo);
 
   Solver solver;
-  auto trivial = solver.SolveTrivialCells(board);
+  auto trivial = solver.SolveTrivialCells(constrainedBoard);
   ASSERT_FALSE(trivial);
 }

@@ -560,6 +560,11 @@ public:
   }
 
   void RenderHtml(std::ostream& output) {
+    return RenderHtml(output, [](std::ostream& output, Cell& cell) { output << cell.number; });
+  }
+
+  void RenderHtml(
+      std::ostream& output, const std::function<void(std::ostream&, Cell&)>& cellPrinter) {
     output << "<!doctype html>" << std::endl;
     output << "<html>" << std::endl;
     output << "<head>" << std::endl;
@@ -577,7 +582,7 @@ public:
     for (int row = 0; row < rows_; row++) {
       output << "\t<tr>" << std::endl;
       for (int column = 0; column < columns_; column++) {
-        const auto& cell = (*this)(row, column);
+        auto& cell = (*this)(row, column);
 
         if (cell.isBlock) {
           auto ifNonZero = [](int i) -> std::string {
@@ -604,15 +609,7 @@ public:
         } else {
           output << "\t\t<td class=\"cell\">" << std::endl;
           output << "\t\t\t";
-          if (cell.number > 0) {
-            output << cell.number;
-          } else {
-            for (int i = 1; i <= 9; i++) {
-              if (cell.numberCandidates.Has(i)) {
-                output << i << "?";
-              }
-            }
-          }
+          cellPrinter(output, cell);
           output << std::endl;
         }
 
@@ -624,13 +621,6 @@ public:
     output << "</table>" << std::endl;
     output << "</body>" << std::endl;
     output << "</html>" << std::endl;
-  }
-
-  void Dump(std::string prefix, int index) {
-    std::ofstream outputFile{prefix + std::to_string(index) + ".html"};
-    if (outputFile) {
-      RenderHtml(outputFile);
-    }
   }
 
   const std::unordered_map<Cell*, int>& TrivialCells() const { return trivialCells_; }

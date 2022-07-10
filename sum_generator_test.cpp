@@ -13,8 +13,9 @@ TEST(SumGeneratorTest, GenerateStar) {
   board.MakeBlock(board(1, 3));
   board.MakeBlock(board(3, 1));
   board.MakeBlock(board(3, 3));
+  ConstrainedBoard constrainedBoard{board};
 
   SumGenerator sumGenerator;
-  bool result = sumGenerator.GenerateSums(board);
+  bool result = sumGenerator.GenerateSums(constrainedBoard);
   ASSERT_TRUE(result);
 }
