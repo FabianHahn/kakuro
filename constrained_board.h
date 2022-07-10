@@ -201,20 +201,41 @@ public:
     board_.SetRowBlockSum(cell, sum);
 
     class Numbers possibleNumbers;
+    class Numbers necessaryNumbers;
+    necessaryNumbers.Fill();
     for (auto combination : possibleCombinations) {
       possibleNumbers.Or(combination);
+      necessaryNumbers.And(combination);
     }
 
-    board_.ForEachRowBlockCell(cell, [this, &undo, &possibleNumbers](const Cell& currentCell) {
-      auto& currentCellConstraints = Constraints(currentCell);
-      undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
-      currentCellConstraints.numberCandidates.And(possibleNumbers);
+    std::array<int, 10> numberCandidateCounts{};
+    std::array<const Cell*, 10> lastNumberCandidate{};
+    board_.ForEachRowBlockCell(
+        cell,
+        [this, &undo, &possibleNumbers, &numberCandidateCounts, &lastNumberCandidate](
+            const Cell& currentCell) {
+          auto& currentCellConstraints = Constraints(currentCell);
+          undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
+          currentCellConstraints.numberCandidates.And(possibleNumbers);
+          currentCellConstraints.numberCandidates.ForEachTrue(
+              [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
+                numberCandidateCounts[number]++;
+                lastNumberCandidate[number] = &currentCell;
+              });
 
-      auto trivial = IsTrivialCell(currentCell);
-      if (trivial) {
-        trivialCells_[&currentCell] = *trivial;
-      } else {
-        trivialCells_.erase(&currentCell);
+          auto trivial = IsTrivialCell(currentCell);
+          if (trivial) {
+            trivialCells_[&currentCell] = *trivial;
+          } else {
+            trivialCells_.erase(&currentCell);
+          }
+        });
+
+    necessaryNumbers.ForEachTrue([&](int number) {
+      if (numberCandidateCounts[number] == 1) {
+        // We know we need this number but there is only one candidate for it, so it must be here!
+        const Cell& currentCell = *lastNumberCandidate[number];
+        trivialCells_[&currentCell] = number;
       }
     });
 
@@ -240,20 +261,41 @@ public:
     board_.SetColumnBlockSum(cell, sum);
 
     class Numbers possibleNumbers;
+    class Numbers necessaryNumbers;
+    necessaryNumbers.Fill();
     for (auto combination : possibleCombinations) {
       possibleNumbers.Or(combination);
+      necessaryNumbers.And(combination);
     }
 
-    board_.ForEachColumnBlockCell(cell, [this, &undo, &possibleNumbers](const Cell& currentCell) {
-      auto& currentCellConstraints = Constraints(currentCell);
-      undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
-      currentCellConstraints.numberCandidates.And(possibleNumbers);
+    std::array<int, 10> numberCandidateCounts{};
+    std::array<const Cell*, 10> lastNumberCandidate{};
+    board_.ForEachColumnBlockCell(
+        cell,
+        [this, &undo, &possibleNumbers, &numberCandidateCounts, &lastNumberCandidate](
+            const Cell& currentCell) {
+          auto& currentCellConstraints = Constraints(currentCell);
+          undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
+          currentCellConstraints.numberCandidates.And(possibleNumbers);
+          currentCellConstraints.numberCandidates.ForEachTrue(
+              [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
+                numberCandidateCounts[number]++;
+                lastNumberCandidate[number] = &currentCell;
+              });
 
-      auto trivial = IsTrivialCell(currentCell);
-      if (trivial) {
-        trivialCells_[&currentCell] = *trivial;
-      } else {
-        trivialCells_.erase(&currentCell);
+          auto trivial = IsTrivialCell(currentCell);
+          if (trivial) {
+            trivialCells_[&currentCell] = *trivial;
+          } else {
+            trivialCells_.erase(&currentCell);
+          }
+        });
+
+    necessaryNumbers.ForEachTrue([&](int number) {
+      if (numberCandidateCounts[number] == 1) {
+        // We know we need this number but there is only one candidate for it, so it must be here!
+        const Cell& currentCell = *lastNumberCandidate[number];
+        trivialCells_[&currentCell] = number;
       }
     });
 

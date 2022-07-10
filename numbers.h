@@ -47,6 +47,14 @@ public:
   void Or(const Numbers& other) { bitset_ |= other.bitset_; }
   void And(const Numbers& other) { bitset_ &= other.bitset_; }
 
+  void ForEachTrue(const std::function<void(int number)>& callback) const {
+    for (int number = 1; number <= 9; number++) {
+      if (Has(number)) {
+        callback(number);
+      }
+    }
+  }
+
 private:
   std::bitset<9> bitset_;
 };

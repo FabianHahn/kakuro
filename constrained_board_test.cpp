@@ -7,6 +7,7 @@
 
 using namespace kakuro;
 using testing::Contains;
+using testing::IsEmpty;
 using testing::Not;
 using testing::UnorderedElementsAre;
 
@@ -65,4 +66,42 @@ TEST(ConstrainedBoardTest, InvalidTrivial) {
   ASSERT_THAT(
       constrainedBoard.TrivialCells(),
       UnorderedElementsAre(std::make_pair(&board(1, 1), 1)));
+}
+
+TEST(ConstrainedBoardTest, TrivialAmbigous) {
+  Board board{5, 4};
+  board.MakeBlock(board(1, 1));
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetColumnBlockSum(board(0, 3), 10, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 2), 10, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(4, 0), 6, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(1, 1), 3, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(1, 1), 6, sumUndo);
+
+  ASSERT_THAT(
+  constrainedBoard.TrivialCells(), IsEmpty());
+}
+
+TEST(ConstrainedBoardTest, TrivialNecessary) {
+  Board board{5, 6};
+  board.MakeBlock(board(3, 2));
+  board.MakeBlock(board(4, 2));
+  board.MakeBlock(board(1, 4));
+  board.MakeBlock(board(2, 4));
+  board.MakeBlock(board(1, 5));
+  board.MakeBlock(board(2, 5));
+  ConstrainedBoard constrainedBoard{board};
+  SetSumUndoContext sumUndo;
+  constrainedBoard.SetColumnBlockSum(board(0, 1), 10, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 2), 3, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(1, 0), 6, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(2, 0), 6, sumUndo);
+  constrainedBoard.SetRowBlockSum(board(4, 2), 6, sumUndo);
+  constrainedBoard.SetColumnBlockSum(board(0, 3), 10, sumUndo);
+
+  ASSERT_EQ(constrainedBoard.IsTrivialCell(board(3, 3)), std::nullopt);
+  ASSERT_THAT(
+      constrainedBoard.TrivialCells(),
+      UnorderedElementsAre(std::make_pair(&board(3, 3), 4)));
 }
