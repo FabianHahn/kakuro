@@ -117,16 +117,16 @@ private:
 
       auto solution = solver_.SolveCells(board, cells_);
 
-      // Always undo the trivial solution
-      solver_.UndoSolution(board, *trivialSolution);
-
       if (trivialSolution->size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
         solver_.UndoSolution(board, solution);
+        solver_.UndoSolution(board, *trivialSolution);
         return true;
       }
       assert(solution.empty());
 
+      // Always undo the trivial solution
+      solver_.UndoSolution(board, *trivialSolution);
       board.UndoSetSum(undo);
     }
 
@@ -151,18 +151,20 @@ private:
         continue;
       }
 
-      auto solution = solver_.SolveCells(board, cells_);
+      board.Dump("choose", attempt_++);
 
-      // Always undo the trivial solution
-      solver_.UndoSolution(board, *trivialSolution);
+      auto solution = solver_.SolveCells(board, cells_);
 
       if (trivialSolution->size() + solution.size() == cells_.size()) {
         // This sum works, so let's undo the solution and return.
         solver_.UndoSolution(board, solution);
+        solver_.UndoSolution(board, *trivialSolution);
         return true;
       }
       assert(solution.empty());
 
+      // Always undo the trivial solution
+      solver_.UndoSolution(board, *trivialSolution);
       board.UndoSetSum(undo);
     }
 

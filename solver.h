@@ -118,8 +118,8 @@ public:
   }
 
   void UndoSolution(ConstrainedBoard& board, const std::vector<FillNumberUndoContext>& solution) {
-    for (auto undo : solution) {
-      board.UndoFillNumber(undo);
+    for (auto iter = solution.rbegin(); iter != solution.rend(); ++iter) {
+      board.UndoFillNumber(*iter);
     }
   }
 
