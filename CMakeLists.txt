@@ -13,6 +13,7 @@ set(KAKURO2_SRC
 	board.h
 	board_generator.h
 	combinations.h
+	constrained_board.h
 	critical_path_finder.h
 	kakuro2.cpp
 	numbers.h
@@ -22,7 +23,7 @@ set(KAKURO2_SRC
 
 set(KAKURO_TEST_SRC
 	test.cpp
-	board_test.cpp
+	constrained_board_test.cpp
 	solver_test.cpp
 	sum_generator_test.cpp
 )
