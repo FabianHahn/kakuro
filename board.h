@@ -58,6 +58,7 @@ struct Cell {
   }
 
   bool IsFree() const { return !isBlock && number == 0; }
+  bool IsFilled() const { return !isBlock && number > 0; }
 };
 
 class Board {
@@ -214,6 +215,21 @@ public:
     }
 
     return true;
+  }
+
+  std::unordered_set<const Cell*> FindFilledCells() const {
+    std::unordered_set<const Cell*> filledCells;
+
+    for (int row = 0; row < Rows(); row++) {
+      for (int column = 0; column < Columns(); column++) {
+        const Cell& cell = (*this)(row, column);
+        if (cell.IsFilled()) {
+          filledCells.insert(&cell);
+        }
+      }
+    }
+
+    return filledCells;
   }
 
   std::unordered_set<const Cell*> FindFreeCells() const {

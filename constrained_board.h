@@ -17,9 +17,8 @@ struct CellConstraints {
 };
 
 struct FillNumberUndoContext {
-  int row;
-  int column;
-  std::vector<std::pair<int, int>> candidatesRemoved;
+  const Cell* cell;
+  std::vector<const Cell*> candidatesRemoved;
 };
 
 struct SetSumUndoContext {
@@ -40,6 +39,13 @@ public:
           cellConstraints.numberCandidates.Fill();
         }
       }
+    }
+
+    // Go over all filled cells and update constraints as if the cell was just filled.
+    auto filledCells = board_.FindFilledCells();
+    for (const auto* cellPointer : filledCells) {
+      const auto& cell = *cellPointer;
+      UpdateCellFilledConstraints(cell);
     }
 
     // TODO: The above assumes that all non-blocks are free, so we also need to fill constraints of
@@ -84,7 +90,7 @@ public:
     return std::nullopt;
   }
 
-  bool FillNumber(const Cell& cell, int number, FillNumberUndoContext& undoContext) {
+  bool FillNumber(const Cell& cell, int number, FillNumberUndoContext& undo) {
     if (number < 1 || number > 9) {
       return false;
     }
@@ -92,10 +98,6 @@ public:
     if (cell.isBlock || cell.number != 0) {
       return false;
     }
-
-    undoContext.row = cell.row;
-    undoContext.column = cell.column;
-    undoContext.candidatesRemoved.clear();
 
     auto& cellConstraints = Constraints(cell);
     const auto& rowBlock = board_.RowBlock(cell);
@@ -130,14 +132,25 @@ public:
     }
 
     board_.SetNumber(cell, number);
-    rowBlockConstraints.rowBlockNumbers.Add(number);
-    columnBlockConstraints.columnBlockNumbers.Add(number);
+    undo = UpdateCellFilledConstraints(cell);
+    return true;
+  }
 
-    auto removeNumberCandidate = [this, number, &undoContext](const Cell& currentCell) {
+  FillNumberUndoContext UpdateCellFilledConstraints(const Cell& cell) {
+    FillNumberUndoContext undo;
+    undo.cell = &cell;
+
+    const auto& rowBlock = board_.RowBlock(cell);
+    const auto& columnBlock = board_.ColumnBlock(cell);
+
+    Constraints(rowBlock).rowBlockNumbers.Add(cell.number);
+    Constraints(columnBlock).columnBlockNumbers.Add(cell.number);
+
+    auto removeNumberCandidate = [&](const Cell& currentCell) {
       auto& currentCellConstraints = Constraints(currentCell);
-      if (currentCellConstraints.numberCandidates.Has(number)) {
-        undoContext.candidatesRemoved.emplace_back(currentCell.row, currentCell.column);
-        currentCellConstraints.numberCandidates.Remove(number);
+      if (currentCellConstraints.numberCandidates.Has(cell.number)) {
+        undo.candidatesRemoved.emplace_back(&currentCell);
+        currentCellConstraints.numberCandidates.Remove(cell.number);
       }
 
       auto trivial = IsTrivialCell(currentCell);
@@ -151,11 +164,11 @@ public:
     // A filled cell cannot be trivial anymore
     trivialCells_.erase(&cell);
 
-    return true;
+    return undo;
   }
 
-  void UndoFillNumber(const FillNumberUndoContext& undoContext) {
-    const Cell& cell = board_(undoContext.row, undoContext.column);
+  void UndoFillNumber(const FillNumberUndoContext& undo) {
+    const Cell& cell = *undo.cell;
 
     const Cell& rowBlock = board_.RowBlock(cell);
     const Cell& columnBlock = board_.ColumnBlock(cell);
@@ -165,8 +178,8 @@ public:
     int number = cell.number;
     board_.SetNumber(cell, /* number */ 0);
 
-    for (auto& currentCellCoordinates : undoContext.candidatesRemoved) {
-      const Cell& currentCell = board_(currentCellCoordinates.first, currentCellCoordinates.second);
+    for (const auto* currentCellPointer : undo.candidatesRemoved) {
+      const Cell& currentCell = *currentCellPointer;
       Constraints(currentCell).numberCandidates.Add(number);
 
       // Check if currentCell is no longer trivial because we undid the fill of cell.
