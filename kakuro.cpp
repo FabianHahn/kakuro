@@ -1092,16 +1092,16 @@ int main(int argc, char** argv) {
               continue;
           }
 
-          auto& rowBlock = *cell.rowBlock;
+          auto& isRow = *cell.isRow;
           auto& columnBlock = *cell.columnBlock;
 
           int attempt = 0;
           cell.number = numberDistribution(random);
-          while (attempt < 9 && (rowBlock.rowNumbers[cell.number] ||
+          while (attempt < 9 && (isRow.rowNumbers[cell.number] ||
   columnBlock.columnNumbers[cell.number])) { cell.number = (cell.number % 9) + 1; attempt++;
           }
 
-          rowBlock.rowNumbers[cell.number] = true;
+          isRow.rowNumbers[cell.number] = true;
           columnBlock.columnNumbers[cell.number] = true;
       }
   }

@@ -74,7 +74,7 @@ private:
       const auto& cell = **blocks_.begin();
 
       if (cell.rowBlockSize > 0 && cell.rowBlockSum == 0) {
-        bool chosen = ChooseRowBlockSum(board, cell);
+        bool chosen = ChooseBlockSum(board, /* isRow */ true, cell);
         assert(chosen); // cannot fail because our precondition is that the subboard is solvable
 
         if (verboseLogs_) {
@@ -84,7 +84,7 @@ private:
       }
 
       if (cell.columnBlockSize > 0 && cell.columnBlockSum == 0) {
-        bool chosen = ChooseColumnBlockSum(board, cell);
+        bool chosen = ChooseBlockSum(board, /* isRow */ false, cell);
         assert(chosen); // cannot fail because our precondition is that the subboard is solvable
 
         if (verboseLogs_) {
@@ -97,15 +97,16 @@ private:
     }
   }
 
-  bool ChooseRowBlockSum(ConstrainedBoard& board, const Cell& cell) {
+  bool ChooseBlockSum(ConstrainedBoard& board, bool isRow, const Cell& cell) {
     for (int sum = 1; sum <= 45; sum++) {
       SetSumUndoContext undo;
-      if (!board.SetRowBlockSum(cell, sum, undo)) {
+      if (!board.SetBlockSum(cell, isRow, sum, undo)) {
         continue;
       }
 
-      std::cout << "Attempting to set row block (" << cell.row << ", " << cell.column << ") to sum "
-                << sum << ": " << attempt_ << "." << std::endl;
+      std::cout << "Attempting to set " << (isRow ? "row" : "column") << " block (" << cell.row
+                << ", " << cell.column << ") to sum " << sum << ": " << attempt_ << "."
+                << std::endl;
       board.Dump("choose", attempt_++);
 
       auto trivialSolution = solver_.SolveTrivialCells(board);
@@ -133,45 +134,6 @@ private:
     return false;
   }
 
-  bool ChooseColumnBlockSum(ConstrainedBoard& board, const Cell& cell) {
-    for (int sum = 1; sum <= 45; sum++) {
-      SetSumUndoContext undo;
-      if (!board.SetColumnBlockSum(cell, sum, undo)) {
-        continue;
-      }
-
-      std::cout << "Attempting to set column block (" << cell.row << ", " << cell.column
-                << ") to sum " << sum << ": " << attempt_ << "." << std::endl;
-      board.Dump("choose", attempt_++);
-
-      auto trivialSolution = solver_.SolveTrivialCells(board);
-      if (!trivialSolution) {
-        // If the block sum makes any trivial solution invalid, it must be invalid itself.
-        board.UndoSetSum(undo);
-        continue;
-      }
-
-      board.Dump("choose", attempt_++);
-
-      auto solution = solver_.SolveCells(board, cells_);
-
-      if (trivialSolution->size() + solution.size() == cells_.size()) {
-        // This sum works, so let's undo the solution and return.
-        solver_.UndoSolution(board, solution);
-        solver_.UndoSolution(board, *trivialSolution);
-        return true;
-      }
-      assert(solution.empty());
-
-      // Always undo the trivial solution
-      solver_.UndoSolution(board, *trivialSolution);
-      board.UndoSetSum(undo);
-    }
-
-    return false;
-  }
-
-  Combinations combinations_;
   Solver solver_;
   bool verboseLogs_;
   std::vector<const Cell*> cells_;

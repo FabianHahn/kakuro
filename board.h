@@ -41,6 +41,22 @@ struct Cell {
     return row - columnBlockRow;
   }
 
+  int BlockSum(bool isRow) const {
+    if (isRow) {
+      return rowBlockSum;
+    } else {
+      return columnBlockSum;
+    }
+  }
+
+  int BlockSize(bool isRow) const {
+    if (isRow) {
+      return rowBlockSize;
+    } else {
+      return columnBlockSize;
+    }
+  }
+
   bool IsFree() const { return !isBlock && number == 0; }
 };
 
@@ -127,33 +143,30 @@ public:
     return (*this)(cell.columnBlockRow, cell.columnBlockColumn);
   }
 
-  void ForEachRowBlockCell(
-      const Cell& cell, const std::function<void(const Cell&)>& callback) const {
+  void ForEachBlockCell(
+      const Cell& cell, bool isRow, const std::function<void(const Cell&)>& callback) const {
     assert(cell.isBlock);
 
-    for (int column = cell.column + 1; column < columns_; column++) {
-      const Cell& currentCell = (*this)(cell.row, column);
+    if (isRow) {
+      for (int column = cell.column + 1; column < columns_; column++) {
+        const Cell& currentCell = (*this)(cell.row, column);
 
-      if (currentCell.isBlock) {
-        break;
+        if (currentCell.isBlock) {
+          break;
+        }
+
+        callback(currentCell);
       }
+    } else {
+      for (int row = cell.row + 1; row < rows_; row++) {
+        const Cell& currentCell = (*this)(row, cell.column);
 
-      callback(currentCell);
-    }
-  }
+        if (currentCell.isBlock) {
+          break;
+        }
 
-  void ForEachColumnBlockCell(
-      const Cell& cell, const std::function<void(const Cell&)>& callback) const {
-    assert(cell.isBlock);
-
-    for (int row = cell.row + 1; row < rows_; row++) {
-      const Cell& currentCell = (*this)(row, cell.column);
-
-      if (currentCell.isBlock) {
-        break;
+        callback(currentCell);
       }
-
-      callback(currentCell);
     }
   }
 
@@ -281,7 +294,7 @@ public:
     cell.columnBlockSize = 0;
     cell.columnBlockFree = 0;
     cell.columnBlockSum = 0;
-    ForEachColumnBlockCellMutable(cell, [&cell, &oldColumnBlock](Cell& currentCell) {
+    ForEachBlockCellMutable(cell, /* isRow */ false, [&cell, &oldColumnBlock](Cell& currentCell) {
       currentCell.columnBlockRow = cell.row;
       currentCell.columnBlockColumn = cell.column;
       cell.columnBlockSize++;
@@ -298,7 +311,7 @@ public:
     cell.rowBlockSize = 0;
     cell.rowBlockFree = 0;
     cell.rowBlockSum = 0;
-    ForEachRowBlockCellMutable(cell, [&cell, &oldRowBlock](Cell& currentCell) {
+    ForEachBlockCellMutable(cell, /* isRow */ true, [&cell, &oldRowBlock](Cell& currentCell) {
       currentCell.rowBlockRow = cell.row;
       currentCell.rowBlockColumn = cell.column;
       cell.rowBlockSize++;
@@ -334,18 +347,15 @@ public:
     }
   }
 
-  void SetRowBlockSum(const Cell& cell, int sum) {
+  void SetBlockSum(const Cell& cell, bool isRow, int sum) {
     assert(cell.isBlock);
     assert(sum >= 0);
     assert(sum <= 45);
-    MutableCell(cell).rowBlockSum = sum;
-  }
-
-  void SetColumnBlockSum(const Cell& cell, int sum) {
-    assert(cell.isBlock);
-    assert(sum >= 0);
-    assert(sum <= 45);
-    MutableCell(cell).columnBlockSum = sum;
+    if (isRow) {
+      MutableCell(cell).rowBlockSum = sum;
+    } else {
+      MutableCell(cell).columnBlockSum = sum;
+    }
   }
 
   void RenderHtml(std::ostream& output) {
@@ -446,14 +456,11 @@ private:
     return MutableCell(cell.columnBlockRow, cell.columnBlockColumn);
   }
 
-  void ForEachRowBlockCellMutable(const Cell& cell, const std::function<void(Cell&)>& callback) {
-    ForEachRowBlockCell(
-        cell, [this, &callback](const Cell& currentCell) { callback(MutableCell(currentCell)); });
-  }
-
-  void ForEachColumnBlockCellMutable(const Cell& cell, const std::function<void(Cell&)>& callback) {
-    ForEachColumnBlockCell(
-        cell, [this, &callback](const Cell& currentCell) { callback(MutableCell(currentCell)); });
+  void ForEachBlockCellMutable(
+      const Cell& cell, bool isRow, const std::function<void(Cell&)>& callback) {
+    ForEachBlockCell(cell, isRow, [this, &callback](const Cell& currentCell) {
+      callback(MutableCell(currentCell));
+    });
   }
 
   int rows_;

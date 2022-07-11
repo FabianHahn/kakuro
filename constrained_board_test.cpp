@@ -28,8 +28,8 @@ TEST(ConstrainedBoardTest, Trivial) {
 
   ConstrainedBoard constrainedBoard{board};
   SetSumUndoContext sumUndo;
-  constrainedBoard.SetRowBlockSum(board(1, 7), 8, sumUndo);
-  constrainedBoard.SetColumnBlockSum(board(1, 1), 1, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 7), /* isRow */ true, 8, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 1), /* isRow */ false, 1, sumUndo);
 
   ASSERT_THAT(
       constrainedBoard.TrivialCells(),
@@ -60,7 +60,7 @@ TEST(ConstrainedBoardTest, InvalidTrivial) {
   constrainedBoard.FillNumber(board(1, 2), 1, undo);
   constrainedBoard.FillNumber(board(1, 3), 4, undo);
   SetSumUndoContext sumUndo;
-  constrainedBoard.SetRowBlockSum(board(1, 0), 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 0), /* isRow */ true, 6, sumUndo);
 
   ASSERT_EQ(constrainedBoard.IsTrivialCell(board(1, 1)), 1);
   ASSERT_THAT(
@@ -73,11 +73,11 @@ TEST(ConstrainedBoardTest, TrivialAmbigous) {
   board.MakeBlock(board(1, 1));
   ConstrainedBoard constrainedBoard{board};
   SetSumUndoContext sumUndo;
-  constrainedBoard.SetColumnBlockSum(board(0, 3), 10, sumUndo);
-  constrainedBoard.SetColumnBlockSum(board(0, 2), 10, sumUndo);
-  constrainedBoard.SetRowBlockSum(board(4, 0), 6, sumUndo);
-  constrainedBoard.SetRowBlockSum(board(1, 1), 3, sumUndo);
-  constrainedBoard.SetColumnBlockSum(board(1, 1), 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(0, 3), /* isRow */ false, 10, sumUndo);
+  constrainedBoard.SetBlockSum(board(0, 2), /* isRow */ false, 10, sumUndo);
+  constrainedBoard.SetBlockSum(board(4, 0), /* isRow */ true, 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 1), /* isRow */ true, 3, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 1), /* isRow */ false, 6, sumUndo);
 
   ASSERT_THAT(
   constrainedBoard.TrivialCells(), IsEmpty());
@@ -93,12 +93,12 @@ TEST(ConstrainedBoardTest, TrivialNecessary) {
   board.MakeBlock(board(2, 5));
   ConstrainedBoard constrainedBoard{board};
   SetSumUndoContext sumUndo;
-  constrainedBoard.SetColumnBlockSum(board(0, 1), 10, sumUndo);
-  constrainedBoard.SetColumnBlockSum(board(0, 2), 3, sumUndo);
-  constrainedBoard.SetRowBlockSum(board(1, 0), 6, sumUndo);
-  constrainedBoard.SetRowBlockSum(board(2, 0), 6, sumUndo);
-  constrainedBoard.SetRowBlockSum(board(4, 2), 6, sumUndo);
-  constrainedBoard.SetColumnBlockSum(board(0, 3), 10, sumUndo);
+  constrainedBoard.SetBlockSum(board(0, 1), /* isRow */ false, 10, sumUndo);
+  constrainedBoard.SetBlockSum(board(0, 2), /* isRow */ false, 3, sumUndo);
+  constrainedBoard.SetBlockSum(board(1, 0), /* isRow */ true, 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(2, 0), /* isRow */ true, 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(4, 2), /* isRow */ true, 6, sumUndo);
+  constrainedBoard.SetBlockSum(board(0, 3), /* isRow */ false, 10, sumUndo);
 
   ASSERT_EQ(constrainedBoard.IsTrivialCell(board(3, 3)), std::nullopt);
   ASSERT_THAT(

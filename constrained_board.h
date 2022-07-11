@@ -145,8 +145,8 @@ public:
         trivialCells_[&currentCell] = *trivial;
       }
     };
-    board_.ForEachColumnBlockCell(columnBlock, removeNumberCandidate);
-    board_.ForEachRowBlockCell(rowBlock, removeNumberCandidate);
+    board_.ForEachBlockCell(columnBlock, /* isRow */ false, removeNumberCandidate);
+    board_.ForEachBlockCell(rowBlock, /* isRow */ true, removeNumberCandidate);
 
     // A filled cell cannot be trivial anymore
     trivialCells_.erase(&cell);
@@ -183,40 +183,33 @@ public:
   }
 
   // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  bool SetRowBlockSum(const Cell& cell, int sum, SetSumUndoContext& undo) {
+  bool SetBlockSum(const Cell& cell, bool isRow, int sum, SetSumUndoContext& undo) {
     assert(cell.isBlock);
-    assert(cell.rowBlockSum == 0);
+    assert(cell.BlockSum(isRow) == 0);
     assert(sum >= 0);
     assert(sum < 46);
 
-    auto possibleCombinations = kCombinations[sum][cell.rowBlockSize];
-    if (possibleCombinations.empty()) {
+    const auto& combinations = kCombinations.PerSizePerSum(sum, cell.BlockSize(isRow));
+    if (combinations.numberCombinations.empty()) {
       return false;
     }
 
     undo.cell = &cell;
     undo.numberCandidates.clear();
-    undo.isRow = true;
+    undo.isRow = isRow;
 
-    board_.SetRowBlockSum(cell, sum);
-
-    class Numbers possibleNumbers;
-    class Numbers necessaryNumbers;
-    necessaryNumbers.Fill();
-    for (auto combination : possibleCombinations) {
-      possibleNumbers.Or(combination);
-      necessaryNumbers.And(combination);
-    }
+    board_.SetBlockSum(cell, isRow, sum);
 
     std::array<int, 10> numberCandidateCounts{};
     std::array<const Cell*, 10> lastNumberCandidate{};
-    board_.ForEachRowBlockCell(
+    board_.ForEachBlockCell(
         cell,
-        [this, &undo, &possibleNumbers, &numberCandidateCounts, &lastNumberCandidate](
+        isRow,
+        [this, &undo, &combinations, &numberCandidateCounts, &lastNumberCandidate](
             const Cell& currentCell) {
           auto& currentCellConstraints = Constraints(currentCell);
           undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
-          currentCellConstraints.numberCandidates.And(possibleNumbers);
+          currentCellConstraints.numberCandidates.And(combinations.possibleNumbers);
           currentCellConstraints.numberCandidates.ForEachTrue(
               [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
                 numberCandidateCounts[number]++;
@@ -231,67 +224,7 @@ public:
           }
         });
 
-    necessaryNumbers.ForEachTrue([&](int number) {
-      if (numberCandidateCounts[number] == 1) {
-        // We know we need this number but there is only one candidate for it, so it must be here!
-        const Cell& currentCell = *lastNumberCandidate[number];
-        trivialCells_[&currentCell] = number;
-      }
-    });
-
-    return true;
-  }
-
-  // Doesn't currently check if the sum is at all possible for this block in terms of combinations.
-  bool SetColumnBlockSum(const Cell& cell, int sum, SetSumUndoContext& undo) {
-    assert(cell.isBlock);
-    assert(cell.columnBlockSum == 0);
-    assert(sum >= 0);
-    assert(sum < 46);
-
-    auto possibleCombinations = kCombinations[sum][cell.columnBlockSize];
-    if (possibleCombinations.empty()) {
-      return false;
-    }
-
-    undo.cell = &cell;
-    undo.numberCandidates.clear();
-    undo.isRow = false;
-
-    board_.SetColumnBlockSum(cell, sum);
-
-    class Numbers possibleNumbers;
-    class Numbers necessaryNumbers;
-    necessaryNumbers.Fill();
-    for (auto combination : possibleCombinations) {
-      possibleNumbers.Or(combination);
-      necessaryNumbers.And(combination);
-    }
-
-    std::array<int, 10> numberCandidateCounts{};
-    std::array<const Cell*, 10> lastNumberCandidate{};
-    board_.ForEachColumnBlockCell(
-        cell,
-        [this, &undo, &possibleNumbers, &numberCandidateCounts, &lastNumberCandidate](
-            const Cell& currentCell) {
-          auto& currentCellConstraints = Constraints(currentCell);
-          undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
-          currentCellConstraints.numberCandidates.And(possibleNumbers);
-          currentCellConstraints.numberCandidates.ForEachTrue(
-              [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
-                numberCandidateCounts[number]++;
-                lastNumberCandidate[number] = &currentCell;
-              });
-
-          auto trivial = IsTrivialCell(currentCell);
-          if (trivial) {
-            trivialCells_[&currentCell] = *trivial;
-          } else {
-            trivialCells_.erase(&currentCell);
-          }
-        });
-
-    necessaryNumbers.ForEachTrue([&](int number) {
+    combinations.necessaryNumbers.ForEachTrue([&](int number) {
       if (numberCandidateCounts[number] == 1) {
         // We know we need this number but there is only one candidate for it, so it must be here!
         const Cell& currentCell = *lastNumberCandidate[number];
@@ -305,31 +238,18 @@ public:
   void UndoSetSum(const SetSumUndoContext& undo) {
     auto& cell = *undo.cell;
     int i = 0;
-    if (undo.isRow) {
-      board_.SetRowBlockSum(cell, 0);
-      board_.ForEachRowBlockCell(cell, [this, &i, &undo](const Cell& currentCell) {
-        Constraints(currentCell).numberCandidates = undo.numberCandidates[i];
-        i++;
 
-        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
-        auto trivial = IsTrivialCell(currentCell);
-        if (!trivial) {
-          trivialCells_.erase(&currentCell);
-        }
-      });
-    } else {
-      board_.SetColumnBlockSum(cell, 0);
-      board_.ForEachColumnBlockCell(cell, [this, &i, &undo](const Cell& currentCell) {
-        Constraints(currentCell).numberCandidates = undo.numberCandidates[i];
-        i++;
+    board_.SetBlockSum(cell, undo.isRow, 0);
+    board_.ForEachBlockCell(cell, undo.isRow, [this, &i, &undo](const Cell& currentCell) {
+      Constraints(currentCell).numberCandidates = undo.numberCandidates[i];
+      i++;
 
-        // If the cell is no longer trivial now, we need to remove it from the trivial cells.
-        auto trivial = IsTrivialCell(currentCell);
-        if (!trivial) {
-          trivialCells_.erase(&currentCell);
-        }
-      });
-    }
+      // If the cell is no longer trivial now, we need to remove it from the trivial cells.
+      auto trivial = IsTrivialCell(currentCell);
+      if (!trivial) {
+        trivialCells_.erase(&currentCell);
+      }
+    });
   }
 
   void Dump(std::string prefix, int index) {
