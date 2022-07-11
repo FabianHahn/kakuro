@@ -48,8 +48,17 @@ public:
       UpdateCellFilledConstraints(cell);
     }
 
-    // TODO: The above assumes that all non-blocks are free, so we also need to fill constraints of
-    // partially filled board.
+    // Go over all nonempty blocks and update sum constraints as if the sum was just filled.
+    auto nonemptyBlocks = board_.FindNonemptyBlockCells();
+    for (const auto* cellPointer : nonemptyBlocks) {
+      const auto& cell = *cellPointer;
+      if (cell.IsRowBlock() && cell.rowBlockSum > 0) {
+        UpdateBlockSumSetConstraints(cell, /* isRow */ true);
+      }
+      if (cell.IsColumnBlock() && cell.columnBlockSum > 0) {
+        UpdateBlockSumSetConstraints(cell, /* isRow */ false);
+      }
+    }
   }
 
   Board& UnderlyingBoard() { return board_; }
@@ -212,30 +221,37 @@ public:
     undo.isRow = isRow;
 
     board_.SetBlockSum(cell, isRow, sum);
+    undo = UpdateBlockSumSetConstraints(cell, isRow);
+    return true;
+  }
 
+  SetSumUndoContext UpdateBlockSumSetConstraints(const Cell& cell, bool isRow) {
+    SetSumUndoContext undo;
+    undo.cell = &cell;
+    undo.numberCandidates.clear();
+    undo.isRow = isRow;
+
+    const auto& combinations =
+        kCombinations.PerSizePerSum(cell.BlockSum(isRow), cell.BlockSize(isRow));
     std::array<int, 10> numberCandidateCounts{};
     std::array<const Cell*, 10> lastNumberCandidate{};
-    board_.ForEachBlockCell(
-        cell,
-        isRow,
-        [this, &undo, &combinations, &numberCandidateCounts, &lastNumberCandidate](
-            const Cell& currentCell) {
-          auto& currentCellConstraints = Constraints(currentCell);
-          undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
-          currentCellConstraints.numberCandidates.And(combinations.possibleNumbers);
-          currentCellConstraints.numberCandidates.ForEachTrue(
-              [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
-                numberCandidateCounts[number]++;
-                lastNumberCandidate[number] = &currentCell;
-              });
+    board_.ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
+      auto& currentCellConstraints = Constraints(currentCell);
+      undo.numberCandidates.push_back(currentCellConstraints.numberCandidates);
+      currentCellConstraints.numberCandidates.And(combinations.possibleNumbers);
+      currentCellConstraints.numberCandidates.ForEachTrue(
+          [&currentCell, &numberCandidateCounts, &lastNumberCandidate](int number) {
+            numberCandidateCounts[number]++;
+            lastNumberCandidate[number] = &currentCell;
+          });
 
-          auto trivial = IsTrivialCell(currentCell);
-          if (trivial) {
-            trivialCells_[&currentCell] = *trivial;
-          } else {
-            trivialCells_.erase(&currentCell);
-          }
-        });
+      auto trivial = IsTrivialCell(currentCell);
+      if (trivial) {
+        trivialCells_[&currentCell] = *trivial;
+      } else {
+        trivialCells_.erase(&currentCell);
+      }
+    });
 
     combinations.necessaryNumbers.ForEachTrue([&](int number) {
       if (numberCandidateCounts[number] == 1) {
@@ -245,7 +261,7 @@ public:
       }
     });
 
-    return true;
+    return undo;
   }
 
   void UndoSetSum(const SetSumUndoContext& undo) {

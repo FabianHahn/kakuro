@@ -57,6 +57,9 @@ struct Cell {
     }
   }
 
+  bool IsRowBlock() const { return isBlock && rowBlockSize > 0; }
+  bool IsColumnBlock() const { return isBlock && columnBlockSize > 0; }
+  bool IsNonemptyBlock() const { return IsRowBlock() || IsColumnBlock(); }
   bool IsFree() const { return !isBlock && number == 0; }
   bool IsFilled() const { return !isBlock && number > 0; }
 };
@@ -215,6 +218,21 @@ public:
     }
 
     return true;
+  }
+
+  std::unordered_set<const Cell*> FindNonemptyBlockCells() const {
+    std::unordered_set<const Cell*> nonemptyBlockCells;
+
+    for (int row = 0; row < Rows(); row++) {
+      for (int column = 0; column < Columns(); column++) {
+        const Cell& cell = (*this)(row, column);
+        if (cell.IsNonemptyBlock()) {
+          nonemptyBlockCells.insert(&cell);
+        }
+      }
+    }
+
+    return nonemptyBlockCells;
   }
 
   std::unordered_set<const Cell*> FindFilledCells() const {
