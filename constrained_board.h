@@ -337,8 +337,11 @@ public:
         numberCandidatesRemoved_[&currentCell].Or(removedNumberCandidates);
       }
 
+      // Check if cell became trivial because we set the block sum.
       auto trivial = IsTrivialCell(currentCell);
-      undo.trivialityChanges.emplace_back(ChangeTriviality(currentCell, trivial));
+      if (trivial) {
+        undo.trivialityChanges.emplace_back(ChangeTriviality(currentCell, trivial));
+      }
     });
 
     // Check if any necessary numbers for this block are now only provided once because of this sum
