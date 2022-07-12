@@ -3,6 +3,7 @@
 
 #include "board.h"
 #include "constrained_board.h"
+#include <algorithm>
 #include <fstream>
 #include <optional>
 #include <random>
@@ -60,6 +61,15 @@ public:
         std::cout << "Attempting to solve subboard at cell (" << cell.row << ", " << cell.column
                   << ") with " << subboard.size() << " free cells." << std::endl;
       }
+
+      // Sort cells by number of sum constraints so we solve those with existing constraints first.
+      std::sort(subboard.begin(), subboard.end(), [&](const Cell* a, const Cell* b) {
+        int numSumsA = (board.UnderlyingBoard().RowBlock(*a).rowBlockSum > 0) +
+            (board.UnderlyingBoard().ColumnBlock(*a).columnBlockSum > 0);
+        int numSumsB = (board.UnderlyingBoard().RowBlock(*b).rowBlockSum > 0) +
+            (board.UnderlyingBoard().ColumnBlock(*b).columnBlockSum > 0);
+        return numSumsA > numSumsB;
+      });
 
       auto subboardSolution = SolveCells(board, subboard);
       if (subboardSolution.empty()) {

@@ -96,6 +96,15 @@ private:
       }
 
       blocks_.erase(blocks_.begin());
+
+      // Sort cells by number of sum constraints so we solve those with existing constraints first.
+      std::sort(cells_.begin(), cells_.end(), [&](const Cell* a, const Cell* b) {
+        int numSumsA = (board.UnderlyingBoard().RowBlock(*a).rowBlockSum > 0) +
+            (board.UnderlyingBoard().ColumnBlock(*a).columnBlockSum > 0);
+        int numSumsB = (board.UnderlyingBoard().RowBlock(*b).rowBlockSum > 0) +
+            (board.UnderlyingBoard().ColumnBlock(*b).columnBlockSum > 0);
+        return numSumsA > numSumsB;
+      });
     }
   }
 
