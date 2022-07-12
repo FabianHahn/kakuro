@@ -40,6 +40,24 @@ public:
     return sum;
   }
 
+  int Min() const {
+    for (int number = 1; number <= 9; number++) {
+      if (Has(number)) {
+        return number;
+      }
+    }
+    return 0;
+  }
+
+  int Max() const {
+    for (int number = 9; number >= 1; number--) {
+      if (Has(number)) {
+        return number;
+      }
+    }
+    return 0;
+  }
+
   void Clear() { bitset_.reset(); }
 
   void Fill() { bitset_.set(); }

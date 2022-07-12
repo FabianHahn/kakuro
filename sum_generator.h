@@ -103,13 +103,33 @@ private:
             (board.UnderlyingBoard().ColumnBlock(*a).columnBlockSum > 0);
         int numSumsB = (board.UnderlyingBoard().RowBlock(*b).rowBlockSum > 0) +
             (board.UnderlyingBoard().ColumnBlock(*b).columnBlockSum > 0);
-        return numSumsA > numSumsB;
+        if (numSumsA != numSumsB) {
+          return numSumsA > numSumsB;
+        }
+
+        return board.Constraints(*a).numberCandidates.Count() <
+            board.Constraints(*b).numberCandidates.Count();
       });
     }
   }
 
   bool ChooseBlockSum(ConstrainedBoard& board, bool isRow, const Cell& cell) {
-    for (int sum = 1; sum <= 45; sum++) {
+    // Simple heuristic to narrow down the search space.
+    int minSum = 0;
+    int maxSum = 0;
+    board.UnderlyingBoard().ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
+      if (currentCell.IsFilled()) {
+        minSum += currentCell.number;
+        maxSum += currentCell.number;
+      } else {
+        minSum += board.Constraints(currentCell).numberCandidates.Min();
+        maxSum += board.Constraints(currentCell).numberCandidates.Max();
+      }
+    });
+    assert(minSum > 0);
+    assert(minSum <= maxSum);
+
+    for (int sum = minSum; sum <= maxSum; sum++) {
       SetSumUndoContext undo;
       if (!board.SetBlockSum(cell, isRow, sum, undo)) {
         continue;

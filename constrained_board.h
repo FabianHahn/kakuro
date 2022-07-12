@@ -403,16 +403,17 @@ public:
 
     // Second, for each affected block check if the removed number is now only a candidate in one
     // cell, which would make that cell trivial.
+    // Also check if existing sum constraints are even possible still.
     auto updateBlockNumberCandidatesRemovedConstraints =
         [&](const std::unordered_map<const Cell*, Numbers>& blockNumberCandidatesRemoved,
             bool isRow) {
           for (auto entry : blockNumberCandidatesRemoved) {
             const auto& cell = *entry.first;
+            int sum = cell.BlockSum(isRow);
             const auto& numberCandidatesRemoved = entry.second;
 
             // Check if any of the removed number candidates were necessary.
-            const auto& combinations =
-                kCombinations.PerSizePerSum(cell.BlockSum(isRow), cell.BlockSize(isRow));
+            const auto& combinations = kCombinations.PerSizePerSum(sum, cell.BlockSize(isRow));
             Numbers necessaryRemovedCandidates{numberCandidatesRemoved};
             necessaryRemovedCandidates.And(combinations.necessaryNumbers);
 
@@ -445,6 +446,30 @@ public:
                 });
               }
             });
+
+            if (sum > 0) {
+              int minSum = 0;
+              int maxSum = 0;
+              board_.ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
+                if (currentCell.IsFilled()) {
+                  minSum += currentCell.number;
+                  maxSum += currentCell.number;
+                } else {
+                  minSum += Constraints(currentCell).numberCandidates.Min();
+                  maxSum += Constraints(currentCell).numberCandidates.Max();
+                }
+              });
+
+              if (sum < minSum || sum > maxSum) {
+                // This sum isn't possible with the available numbers, so this must be a
+                // contradiction!
+                board_.ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
+                  if (currentCell.IsFree()) {
+                    trivialityChanges.emplace_back(ChangeTriviality(currentCell, 0));
+                  }
+                });
+              }
+            }
           }
         };
     updateBlockNumberCandidatesRemovedConstraints(
