@@ -419,17 +419,27 @@ public:
               const Cell* lastCell = nullptr;
               int numCells = 0;
               board_.ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
-                // consider filled
-                if (Constraints(currentCell).numberCandidates.Has(number)) {
+                if (currentCell.number == number ||
+                    Constraints(currentCell).numberCandidates.Has(number)) {
                   lastCell = &currentCell;
                   numCells++;
                 }
               });
 
-              // We know we need this number but there is only one candidate for it, so it must be
-              // here!
               if (numCells == 1) {
-                trivialityChanges.emplace_back(ChangeTriviality(*lastCell, number));
+                if (lastCell->IsFree()) {
+                  // We know we need this number but there is only one candidate for it, so it must
+                  // be here!
+                  trivialityChanges.emplace_back(ChangeTriviality(*lastCell, number));
+                }
+              } else if (numCells == 0) {
+                // This is a contradiction, we need this number but there is no available cell for
+                // it.
+                board_.ForEachBlockCell(cell, isRow, [&](const Cell& currentCell) {
+                  if (currentCell.IsFree()) {
+                    trivialityChanges.emplace_back(ChangeTriviality(currentCell, 0));
+                  }
+                });
               }
             });
           }
