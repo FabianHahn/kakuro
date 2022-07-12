@@ -90,14 +90,14 @@ public:
       auto& nextTrivialCell = *nextTrivial->first;
       int nextTrivialNumber = nextTrivial->second;
 
-      FillNumberUndoContext undoContext;
-      if (!board.FillNumber(nextTrivialCell, nextTrivialNumber, undoContext)) {
+      FillNumberUndoContext undo;
+      if (!board.FillNumber(nextTrivialCell, nextTrivialNumber, undo)) {
         // There aren't supposed to be any conflicts for filling trivial cells, so there must be
         // contradictory board constraints.
         UndoSolution(board, solution);
         return std::nullopt;
       }
-      solution.emplace_back(undoContext);
+      solution.emplace_back(undo);
       numTrivialCells++;
     }
     return solution;

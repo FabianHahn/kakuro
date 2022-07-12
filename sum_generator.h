@@ -13,7 +13,9 @@ namespace kakuro {
 class SumGenerator {
 public:
   SumGenerator(bool verboseLogs = true)
-      : solver_{/* solveTrivial */ true, true, true, true}, verboseLogs_{verboseLogs} {}
+      : solver_{/* solveTrivial */ true, true, true, true},
+        verboseLogs_{verboseLogs},
+        attempt_{0} {}
 
   bool GenerateSums(ConstrainedBoard& board) {
     // Solve any initially trivial cells.

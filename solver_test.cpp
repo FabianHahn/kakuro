@@ -113,7 +113,7 @@ TEST_P(SolverTest, SolveGenerated) {
   ASSERT_TRUE(solved);
 }
 
-INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(WithWithoutTrivial, SolverTest, testing::Values(true));
 
 
 TEST(SolverTest, SolveInvalidTrivial) {
