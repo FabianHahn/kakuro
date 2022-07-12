@@ -55,6 +55,10 @@ public:
     }
   }
 
+  bool operator==(const Numbers& other) const {
+    return bitset_ == other.bitset_;
+  }
+
 private:
   std::bitset<9> bitset_;
 };

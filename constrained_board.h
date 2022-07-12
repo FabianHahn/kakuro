@@ -69,6 +69,10 @@ public:
     return cellConstraints_[cell.row * board_.Columns() + cell.column];
   }
 
+  const CellConstraints& Constraints(const Cell& cell) const {
+    return cellConstraints_[cell.row * board_.Columns() + cell.column];
+  }
+
   std::optional<int> IsTrivialCell(const Cell& cell) {
     assert(!cell.isBlock);
 
@@ -296,6 +300,23 @@ public:
         }
       });
     }
+  }
+
+  void AssertValidity() const {
+    ConstrainedBoard other{board_};
+
+    for (int row = 0; row < board_.Rows(); row++) {
+      for (int column = 0; column < board_.Columns(); column++) {
+        const auto& cell = board_(row, column);
+        const auto& constraints = Constraints(cell);
+        const auto& otherConstraints = other.Constraints(cell);
+        assert(constraints.numberCandidates == otherConstraints.numberCandidates);
+        assert(constraints.rowBlockNumbers == otherConstraints.rowBlockNumbers);
+        assert(constraints.columnBlockNumbers == otherConstraints.columnBlockNumbers);
+      }
+    }
+
+    assert(trivialCells_ == other.trivialCells_);
   }
 
 private:
