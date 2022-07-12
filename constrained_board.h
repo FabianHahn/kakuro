@@ -463,9 +463,19 @@ public:
         if (cell.number > 0) {
           output << cell.number;
         } else {
-          for (int i = 1; i <= 9; i++) {
-            if (Constraints(cell).numberCandidates.Has(i)) {
-              output << i << "?";
+          auto trivialQuery = trivialCells_.find(&cell);
+          if (trivialQuery == trivialCells_.end()) {
+            for (int i = 1; i <= 9; i++) {
+              if (Constraints(cell).numberCandidates.Has(i)) {
+                output << i << "?";
+              }
+            }
+          } else {
+            int trivial = trivialQuery->second;
+            if (trivial == 0) {
+              output << "↯";
+            } else {
+              output << trivial << "!";
             }
           }
         }
