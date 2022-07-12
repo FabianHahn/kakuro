@@ -408,6 +408,8 @@ public:
     output << "table { border-collapse: collapse }" << std::endl;
     output << "td { text-align: center; vertical-align: middle; color: black }" << std::endl;
     output << "td.cell { width: 48px; height: 48px; border: 1px solid black }" << std::endl;
+    output << "input { border: 0px; background: transparent; text-align: center; width: 100%; }"
+           << std::endl;
     output << "</style>" << std::endl;
     output << "</head>" << std::endl;
     output << "<body>" << std::endl;

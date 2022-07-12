@@ -13,7 +13,7 @@ namespace kakuro {
 class SumGenerator {
 public:
   SumGenerator(bool verboseLogs = true)
-      : solver_{/* solveTrivial */ true, true, true, true},
+      : solver_{/* solveTrivial */ true, false, false, false},
         verboseLogs_{verboseLogs},
         attempt_{0} {}
 

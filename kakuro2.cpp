@@ -53,7 +53,8 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  board.RenderHtml(outputFile);
+  board.RenderHtml(
+      outputFile, [](std::ostream& output, const Cell& cell) { output << "<input type=text />"; });
 
   return EXIT_SUCCESS;
 }
